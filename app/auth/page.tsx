@@ -1,11 +1,15 @@
 "use client";
 
-import React from "react";
+import React, {useEffect} from "react";
 
 const AuthPage = () => {
   const handleClick = () => {
-    window.location.href = "http://localhost:8080/oauth2/authorization/discord";
+    window.location.href = "http://localhost:8080/auth/discord";
   };
+
+    useEffect(() => {
+        fetch("http://localhost:8080/test", {credentials: "include"}).then(r => console.log({r}))
+    }, []);
 
   return <button onClick={handleClick}>AuthPage</button>;
 };

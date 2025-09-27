@@ -74,11 +74,8 @@ const NiggaPage = () => {
                   IP: {user.ip || "Loading..."}
                 </div>
                 <div className="text-xs text-gray-400">
-                  Geschaute Videos: {user.watchedVideos.length}
+                  ID: {user.id}
                 </div>
-                {user.watchedVideos.map((videoId, index) => (
-                  <div key={`${videoId}-${index}`}>{videoId}</div>
-                ))}
               </div>
             </div>
           ))}

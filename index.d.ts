@@ -4,4 +4,5 @@ interface User {
   imageUrl?: string;
   ip: string;
   watchedVideos: string[];
+  id?: string;
 }
