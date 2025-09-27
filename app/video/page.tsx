@@ -1,6 +1,6 @@
 "use client";
 
-import VideoStream from "@/components/Videos/VideoStream";
+// import VideoStream from "@/components/Videos/VideoStream";
 import VideoInteractionBar from "@/components/Videos/VideoInteractionBar";
 import useGetVideoForUser from "@/hooks/user/useGetVideoForUser";
 
