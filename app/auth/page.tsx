@@ -8,7 +8,7 @@ const AuthPage = () => {
   };
 
     useEffect(() => {
-        fetch("http://localhost:8080/test", {credentials: "include"}).then(r => console.log({r}))
+        fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/test`, {credentials: "include"}).then(r => console.log({r}))
     }, []);
 
   return <button onClick={handleClick}>AuthPage</button>;
