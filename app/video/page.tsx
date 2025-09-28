@@ -1,9 +1,10 @@
 "use client";
-import React, { useEffect, useRef, useState, useMemo } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import VideoInteractionBar from "@/components/Videos/VideoInteractionBar";
 import useGetVideos from "@/hooks/video/useGetVideos";
 import useCreateComment from "@/hooks/video/useCreateComment";
 import useGetCommentsByVideoId from "@/hooks/video/useGetCommentsByVideoId";
+import { hardcodedFeed } from "@/utils/hardcodedFeed";
 
 interface VideoComment {
   id: string;
@@ -16,7 +17,7 @@ interface VideoComment {
   } | null;
 }
 
-interface FeedVideo {
+export interface FeedVideo {
   id: string;
   url: string;
   creationDate?: string;
@@ -26,81 +27,56 @@ interface FeedVideo {
   comments?: VideoComment[];
 }
 
-// VideoPage zeigt einen Video-Feed (hartcodiert oder API) mit Kommentar- und Lautstärkefunktion.
+// Values
+const useHardcodedFeed = false; // true: Demo-Feed, false: API-Feed
+const DEFAULT_AUDIO_LEVEL = 0.1;
+const DEFAULT_AUTHOR_ID = "68d826bc2018cc621ffe4415";
+
 const VideoPage = () => {
   const { data: videosResponse, isLoading } = useGetVideos();
   const createCommentMutation = useCreateComment();
 
-  // Demo-Videos
-  const hardcodedFeed: FeedVideo[] = [
-    {
-      id: "vid1",
-      url: "https://cdn.discordapp.com/attachments/978003347783159880/1421537020307701860/d38fecf979969690d77e260fe5302149.mp4?ex=68da0dc4&is=68d8bc44&hm=fe7228d098545cf8f87343f841b5c4d757ea93bce07eedc17f6bc094d704d4d6&",
-      creationDate: "2025-09-27T16:33:09.932+00:00",
-      author: "Testuser",
-      description: "Beispielvideo 1",
-      likes: 5,
-      comments: [
-        {
-          id: "c1",
-          content: "Cooles Video!",
-          author: {
-            id: "u1",
-            handle: "tester",
-            displayName: "Tester",
-            imageUrl: ""
-          }
-        }
-      ]
-    },
-    {
-      id: "vid2",
-      url: "https://cdn.discordapp.com/attachments/978003347783159880/1421537020307701860/d38fecf979969690d77e260fe5302149.mp4?ex=68da0dc4&is=68d8bc44&hm=fe7228d098545cf8f87343f841b5c4d757ea93bce07eedc17f6bc094d704d4d6&",
-      creationDate: "2025-09-27T16:33:09.932+00:00",
-      author: "DemoUser",
-      description: "Beispielvideo 2",
-      likes: 2,
-      comments: []
-    }
-  ];
-
-  // true: Demo-Feed, false: API-Feed
-  const useHardcodedFeed = false;
   const feed: FeedVideo[] = useHardcodedFeed ? hardcodedFeed : (
     Array.isArray(videosResponse?.data) ? videosResponse.data : []
   );
 
   // States
-  const videoRefs = useRef<HTMLVideoElement[]>([]);
+  const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
   const [activeIndex, setActiveIndex] = useState(0);
-  const [openCommentsFor, setOpenCommentsFor] = useState<number | null>(null);
-  const [audioLevel, setAudioLevel] = useState(0.1);
+  const [openCommentsFor, setOpenCommentsFor] = useState<string | null>(null);
+  const [audioLevel, setAudioLevel] = useState(DEFAULT_AUDIO_LEVEL);
   const [commentText, setCommentText] = useState("");
   const [videoCommentCounts, setVideoCommentCounts] = useState<Record<string, number>>({});
 
-  // Hilfsvariablen
+  // Helper var
   const isCommentsOpen = openCommentsFor !== null;
-  const currentVideoId = openCommentsFor !== null ? feed[openCommentsFor]?.id : null;
+  const currentVideo = feed.find(v => v.id === openCommentsFor);
+  const currentVideoId = currentVideo?.id || null;
 
-  // Kommentare holen, wenn Modal offen
+  // grab comments, if modal open
   const { data: commentsData, refetch: refetchComments } = useGetCommentsByVideoId(
     currentVideoId || '',
-    !!currentVideoId
+    !!currentVideoId && !useHardcodedFeed
   );
 
-  // Video-Ref setzen
-  const setVideoRef = (el: HTMLVideoElement | null, idx: number) => {
-    if (el) videoRefs.current[idx] = el;
+  // comments für das Modal: API oder Demo
+  const modalComments = useHardcodedFeed
+    ? (currentVideo?.comments || [])
+    : commentsData || [];
+
+  // Set Video-Ref
+  const setVideoRef = (el: HTMLVideoElement | null, id: string) => {
+    videoRefs.current[id] = el;
   };
 
-  // Kommentare nachladen bei Modal-Öffnung
+  // Load Comments bei Modal-Opem
   useEffect(() => {
     if (currentVideoId && openCommentsFor !== null) {
       refetchComments().catch(() => {});
     }
   }, [currentVideoId, openCommentsFor, refetchComments]);
 
-  // Kommentar-Anzahl aktualisieren
+  // Comments-Number refresh
   useEffect(() => {
     if (currentVideoId && commentsData) {
       setVideoCommentCounts(prev => ({ ...prev, [currentVideoId]: commentsData.length }));
@@ -110,13 +86,23 @@ const VideoPage = () => {
   // Autoplay/Pause für Videos
   useEffect(() => {
     if (feed.length === 0) return;
+    // Autoplay das aktive Video at Initial-Render
+    const activeVideo = videoRefs.current[feed[activeIndex]?.id ?? ''];
+    if (activeVideo) {
+      activeVideo.muted = false;
+      activeVideo.volume = audioLevel;
+      if (activeVideo.paused) {
+        activeVideo.play().catch(() => setTimeout(() => activeVideo.play().catch(() => {}), 500));
+      }
+    }
     const observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
-        const idx = Number((entry.target as HTMLElement).dataset.index);
-        if (Number.isNaN(idx)) return;
-        const vid = videoRefs.current[idx];
+        const id = (entry.target as HTMLElement).dataset.index;
+        if (!id) return;
+        const vid = videoRefs.current[id];
         if (!vid) return;
         if (entry.isIntersecting) {
+          const idx = feed.findIndex(v => v.id === id);
           if (activeIndex !== idx) setActiveIndex(idx);
           vid.muted = false;
           vid.volume = audioLevel;
@@ -129,36 +115,38 @@ const VideoPage = () => {
         }
       });
     }, { threshold: 0.65 });
-    videoRefs.current.forEach((v) => v && observer.observe(v));
+    feed.forEach((item) => {
+      const v = videoRefs.current[item.id];
+      if (v) observer.observe(v);
+    });
     return () => observer.disconnect();
   }, [feed, activeIndex, audioLevel]);
 
-  // Lautstärke für alle Videos aktualisieren
+  // Volume für alle Videos refresh
   useEffect(() => {
-    videoRefs.current.forEach(v => {
+    Object.values(videoRefs.current).forEach((v: HTMLVideoElement | null) => {
       if (!v) return;
       v.volume = audioLevel;
       v.muted = audioLevel === 0;
     });
   }, [audioLevel]);
 
-  // Video Play/Pause per Klick
-  const handleVideoClick = (idx: number) => {
-    const video = videoRefs.current[idx];
+  // Video Play/Pause per Click
+  const handleVideoClick = (id: string) => {
+    const video = videoRefs.current[id];
     if (!video) return;
     video.paused ? video.play().catch(() => {}) : video.pause();
   };
 
-  // Kommentar-Modal öffnen/schließen
-  const openComments = (idx: number) => setOpenCommentsFor(idx);
+  // Comments-Modal open/close
+  const openComments = (id: string) => setOpenCommentsFor(id);
   const closeComments = () => setOpenCommentsFor(null);
 
-  // Kommentar absenden
+  // Send Comments
   const handleCommentSubmit = (e: React.FormEvent<HTMLFormElement>, videoId: string) => {
     e.preventDefault();
     if (!commentText.trim()) return;
-    const authorId = "68d826bc2018cc621ffe4415";
-    createCommentMutation.mutate({ videoId, authorId, content: commentText.trim() }, {
+    createCommentMutation.mutate({ videoId, authorId: DEFAULT_AUTHOR_ID, content: commentText.trim() }, {
       onSuccess: () => {
         refetchComments().catch(() => {});
         setCommentText("");
@@ -166,7 +154,7 @@ const VideoPage = () => {
     });
   };
 
-  // Lade-/Leere-Zustände
+  // Lade-/reset
   if (isLoading && feed.length === 0) {
     return <div className="flex h-screen w-full items-center justify-center text-sm text-white/60 bg-black">Lade Videos...</div>;
   }
@@ -174,19 +162,19 @@ const VideoPage = () => {
     return <div className="flex h-screen w-full items-center justify-center text-sm text-white/60 bg-black">No Videos found.</div>;
   }
 
-  // Haupt-Render
+  // Main-Render
   return (
     <div className="h-screen w-full bg-black text-white">
       <div className={`h-screen w-full ${isCommentsOpen ? "overflow-hidden" : "overflow-y-scroll"} snap-y snap-mandatory bg-black text-white`}>
-        {feed.map((item, idx) => {
+        {feed.map((item) => {
           const commentPreview = item.comments?.[0] ? `${item.comments[0].author?.displayName || item.comments[0].author?.handle || ""}: ${item.comments[0].content}` : undefined;
           return (
             <div key={item.id} className="relative h-screen w-full flex items-center justify-center snap-start">
               <div className="relative h-full flex items-center justify-center" style={{ aspectRatio: "9 / 16", maxHeight: "100vh", maxWidth: "calc(100vh * 9 / 16)", width: "100%" }}>
                 {/* Video */}
                 <video
-                  data-index={idx}
-                  ref={el => setVideoRef(el, idx)}
+                  data-index={item.id}
+                  ref={el => setVideoRef(el, item.id)}
                   src={item.url}
                   className="absolute inset-0 w-full h-full object-cover rounded-lg bg-black"
                   playsInline
@@ -196,9 +184,9 @@ const VideoPage = () => {
                   controls={false}
                   disablePictureInPicture
                   controlsList="nodownload noplaybackrate nofullscreen"
-                  onClick={() => handleVideoClick(idx)}
+                  onClick={() => handleVideoClick(item.id)}
                 />
-                {/* Lautstärke-Regler */}
+                {/* Volume */}
                 <div className="absolute top-3 left-3 z-20 bg-black/50 hover:bg-black/70 transition-colors text-white text-xs px-3 py-2 rounded flex items-center gap-2">
                   <span className="text-[10px] whitespace-nowrap">{audioLevel === 0 ? '🥶' : audioLevel < 0.5 ? '🥀' : '🌹'}</span>
                   <input
@@ -219,25 +207,25 @@ const VideoPage = () => {
                   {item.description && <span className="text-xs opacity-90 drop-shadow line-clamp-3">{item.description}</span>}
                   {commentPreview && <span className="text-[11px] opacity-70 italic drop-shadow line-clamp-2">{commentPreview}</span>}
                 </div>
-                {/* Interaktionsleiste */}
+                {/* Interactive Bar */}
                 <div className="absolute right-3 top-[60%] -translate-y-1/2 z-10 flex flex-col gap-3 items-center">
                   <VideoInteractionBar
                     duration={0}
                     likes={item.likes || 0}
                     comments={videoCommentCounts[item.id] ?? (item.comments?.length || 0)}
-                    onCommentsClick={() => openComments(idx)}
+                    onCommentsClick={() => openComments(item.id)}
                   />
                 </div>
-                {/* Kommentar-Modal */}
-                {openCommentsFor === idx && (
+                {/* Comment-Modal */}
+                {openCommentsFor === item.id && (
                   <div className="absolute inset-x-0 bottom-0 h-1/2 z-30 flex flex-col bg-white text-black rounded-t-lg shadow-[0_-4px_18px_rgba(0,0,0,0.4)] border-t border-black/10" onClick={e => e.stopPropagation()}>
                     <div className="flex items-center justify-between px-4 py-3 border-b border-black/10">
-                      <h2 className="text-sm font-semibold">Comments ({commentsData?.length || 0})</h2>
+                      <h2 className="text-sm font-semibold">Comments ({modalComments.length})</h2>
                       <button onClick={closeComments} className="text-xs w-7 h-7 flex items-center justify-center rounded hover:bg-black/10" aria-label="Close comments">×</button>
                     </div>
                     <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4 text-xs">
-                      {commentsData && commentsData.length > 0 ? (
-                        commentsData.map((comment, commentIndex) => {
+                      {modalComments.length > 0 ? (
+                        modalComments.map((comment, commentIndex) => {
                           const name = comment.author?.displayName || comment.author?.handle || "User";
                           const initial = name.trim().charAt(0).toUpperCase();
                           const uniqueKey = comment.id || `comment-${commentIndex}-${comment.content.substring(0, 10)}`;
@@ -258,7 +246,7 @@ const VideoPage = () => {
                           );
                         })
                       ) : (
-                        <div className="text-xs opacity-50">{commentsData === undefined ? 'Loading Comments...' : 'No Comments found.'}</div>
+                        <div className="text-xs opacity-50">No Comments found.</div>
                       )}
                     </div>
                     <form onSubmit={e => handleCommentSubmit(e, item.id)} className="px-4 py-3 border-t border-black/10 flex gap-2">
