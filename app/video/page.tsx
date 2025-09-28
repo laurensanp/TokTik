@@ -30,15 +30,18 @@ export interface FeedVideo {
 // Values
 const useHardcodedFeed = false; // true: Demo-Feed, false: API-Feed
 const DEFAULT_AUDIO_LEVEL = 0.1;
-const DEFAULT_AUTHOR_ID = "68d826bc2018cc621ffe4415";
+const DEFAULT_AUTHOR_ID = "68d9a03c95253c74ada9a3bc";
 
 const VideoPage = () => {
   const { data: videosResponse, isLoading } = useGetVideos();
   const createCommentMutation = useCreateComment();
 
-  const feed: FeedVideo[] = useHardcodedFeed ? hardcodedFeed : (
-    Array.isArray(videosResponse?.data) ? videosResponse.data : []
-  );
+  console.log({videosResponse})
+
+    const feed: FeedVideo[] = (useHardcodedFeed ? hardcodedFeed : (
+        Array.isArray(videosResponse?.data) ? videosResponse.data : []
+    )).sort((a, b) => new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime());
+
 
   // States
   const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
@@ -69,7 +72,7 @@ const VideoPage = () => {
     videoRefs.current[id] = el;
   };
 
-  // Load Comments bei Modal-Opem
+  // Load Comments bei Modal-Open
   useEffect(() => {
     if (currentVideoId && openCommentsFor !== null) {
       refetchComments().catch(() => {});
@@ -86,7 +89,7 @@ const VideoPage = () => {
   // Autoplay/Pause für Videos
   useEffect(() => {
     if (feed.length === 0) return;
-    // Autoplay das aktive Video at Initial-Render
+    // Autoplay das Video at Initial-Render
     const activeVideo = videoRefs.current[feed[activeIndex]?.id ?? ''];
     if (activeVideo) {
       activeVideo.muted = false;
@@ -203,7 +206,11 @@ const VideoPage = () => {
                 </div>
                 {/* Video-Infos */}
                 <div className="absolute left-3 bottom-4 right-28 flex flex-col gap-1 pointer-events-none z-10">
-                  {item.author && <span className="font-semibold text-sm drop-shadow">{item.author}</span>}
+                    {item.author && typeof item.author === "object" && (
+                        <span className="font-semibold text-sm drop-shadow">
+                            {item.author.displayName || item.author.handle || "User"}
+                        </span>
+                    )}
                   {item.description && <span className="text-xs opacity-90 drop-shadow line-clamp-3">{item.description}</span>}
                   {commentPreview && <span className="text-[11px] opacity-70 italic drop-shadow line-clamp-2">{commentPreview}</span>}
                 </div>
