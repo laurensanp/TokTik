@@ -9,7 +9,7 @@ const useGetVideoForUser = (id: string) => {
       const data = await axios.get(
         `${process.env.NEXT_PUBLIC_API_BASE_URL}/user/video/${id}`
       );
-      queryClient.invalidateQueries({ queryKey: ["GET_ALL_USERS"] });
+      await queryClient.invalidateQueries({ queryKey: ["GET_ALL_USERS"] });
       return data;
     },
   });

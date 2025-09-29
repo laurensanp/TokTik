@@ -22,11 +22,11 @@ const Header: FC<HeaderProps> = ({ logo, disabledPaths = [] }) => {
       link: "/",
     },
     {
-      name: "Jetzt hier BrainRott™️ schauen",
+      name: "Watch TokTik™️ now",
       link: "/video",
     },
     {
-      name: "Kacken Sie viel?",
+      name: "Shitting Sie much?",
       link: "/user",
     },
   ];

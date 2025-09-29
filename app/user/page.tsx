@@ -3,7 +3,6 @@
 import useCreateNewUser from "@/hooks/user/useCreateNewUser";
 import useGetAllUsers from "@/hooks/user/useGetAllUsers";
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
 import axios from "axios";
 import { getIpAddress } from "@/utils/getIpAddress";
 
@@ -31,7 +30,7 @@ const NiggaPage = () => {
     const ip = await getIpAddress();
 
     await createNigger({
-      displayName: "laurensanp",
+      displayName: "Laurens",
       handle: "real_laurens_official",
       imageUrl: randomImageUrl,
       ip,
@@ -41,7 +40,7 @@ const NiggaPage = () => {
 
   const handleDeleteAllNiggers = async () => {
     await axios.delete(`${process.env.NEXT_PUBLIC_API_BASE_URL}/user`);
-    queryClient.invalidateQueries({ queryKey: ["GET_ALL_USERS"] });
+    await queryClient.invalidateQueries({ queryKey: ["GET_ALL_USERS"] });
   };
 
   return (

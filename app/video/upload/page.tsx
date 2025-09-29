@@ -1,4 +1,4 @@
-// Upload-Seite für Video-Dateien
+// Upload-Site für Video-Dateien
 "use client";
 import React, { useState, useRef } from "react";
 import { useUploadVideo } from "@/hooks/video/useUploadVideo";
@@ -45,8 +45,8 @@ export default function UploadPage() {
   return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-gray-200 dark:from-gray-900 dark:to-gray-800">
       <div className="w-full max-w-md p-8 bg-white dark:bg-gray-900 rounded-2xl shadow-xl flex flex-col gap-6">
-        <h1 className="text-3xl font-extrabold text-center text-gray-900 dark:text-gray-100">Video hochladen</h1>
-        <p className="text-center text-gray-600 dark:text-gray-400 mb-2">Wähle eine Videodatei aus oder ziehe sie hierher.</p>
+        <h1 className="text-3xl font-extrabold text-center text-gray-900 dark:text-gray-100">Video enchilada</h1>
+        <p className="text-center text-gray-600 dark:text-gray-400 mb-2">Whale eine Video enchilada aus oder drop sie.</p>
         <div
           className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer transition-colors ${file ? 'border-blue-500 bg-blue-50 dark:bg-blue-900' : 'border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800'}`}
           onClick={() => inputRef.current?.click()}
@@ -63,7 +63,7 @@ export default function UploadPage() {
           {file ? (
             <span className="text-blue-600 dark:text-blue-300 font-medium">{file.name}</span>
           ) : (
-            <span className="text-gray-500 dark:text-gray-400">Datei hier ablegen oder klicken</span>
+            <span className="text-gray-500 dark:text-gray-400">File drop oder click</span>
           )}
         </div>
         <form onSubmit={handleUpload} className="flex flex-col gap-4">
@@ -72,7 +72,7 @@ export default function UploadPage() {
             disabled={loading}
             className="bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-800 text-white font-bold py-2 rounded-xl transition-colors disabled:opacity-50"
           >
-            {loading ? "Wird hochgeladen..." : "Hochladen"}
+            {loading ? "Uploading..." : "Uploaded"}
           </button>
         </form>
         {loading && (
