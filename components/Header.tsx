@@ -10,7 +10,7 @@ interface HeaderItem {
 }
 
 interface HeaderProps {
-  logo: string;
+  logo?: string;
   disabledPaths?: string[];
 }
 
@@ -18,28 +18,27 @@ const Header: FC<HeaderProps> = ({ logo, disabledPaths = [] }) => {
   const path = usePathname();
   const links: HeaderItem[] = [
     {
-      name: "Home",
-      link: "/",
+        name: "Uploade TokTik™️ now",
+        link: "/video/upload",
     },
     {
       name: "Watch TokTik™️ now",
       link: "/video",
     },
     {
-      name: "Shitting Sie much?",
+      name: "User?",
       link: "/user",
     },
   ];
   return (
     !disabledPaths.includes(path) && (
       <nav className="flex bg-black px-8 py-4 items-center justify-between shadow-lg">
-        <Link href="/" className="transition-transform hover:scale-105">
-          <img
-            src={logo}
-            className="h-16 w-16 rounded-lg object-cover"
-            alt="LOGO"
-          />
-        </Link>
+        {/* Logo added back */}
+        <div className="flex items-center">
+          {logo && (
+            <img src={logo} alt="Toktik Logo" className="h-10 w-auto mr-4" />
+          )}
+        </div>
         <div className="flex items-center gap-6">
           {links.map((item, index) => (
             <Link
