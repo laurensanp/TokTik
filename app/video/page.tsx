@@ -4,7 +4,6 @@ import VideoInteractionBar from "@/components/Videos/VideoInteractionBar";
 import useGetVideos from "@/hooks/video/useGetVideos";
 import useCreateComment from "@/hooks/video/useCreateComment";
 import useGetCommentsByVideoId from "@/hooks/video/useGetCommentsByVideoId";
-import { hardcodedFeed } from "@/utils/hardcodedFeed";
 
 interface VideoComment {
   id: string;
@@ -21,14 +20,17 @@ export interface FeedVideo {
   id: string;
   url: string;
   creationDate?: string;
-  author?: string | null;
+  author?: {
+      id?: string;
+      handle?: string;
+      displayName?: string;
+      imageUrl?: string;
+  }
   description?: string | null;
   likes?: number;
   comments?: VideoComment[];
 }
 
-// Values
-const useHardcodedFeed = false; // true: Demo-Feed, false: API-Feed
 const DEFAULT_AUDIO_LEVEL = 0.1;
 const DEFAULT_AUTHOR_ID = "68d9a03c95253c74ada9a3bc";
 
@@ -38,9 +40,11 @@ const VideoPage = () => {
 
   console.log({videosResponse})
 
-    const feed: FeedVideo[] = (useHardcodedFeed ? hardcodedFeed : (
-        Array.isArray(videosResponse?.data) ? videosResponse.data : []
-    )).sort((a, b) => new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime());
+  // Feed nur aus API:
+  const feed: FeedVideo[] = Array.isArray(videosResponse?.data) ? videosResponse.data : [];
+  feed.sort((a, b) =>
+    new Date(b.creationDate ?? 0).getTime() - new Date(a.creationDate ?? 0).getTime()
+  );
 
 
   // States
@@ -56,18 +60,15 @@ const VideoPage = () => {
   const currentVideo = feed.find(v => v.id === openCommentsFor);
   const currentVideoId = currentVideo?.id || null;
 
-  // grab comments, if modal open
+  // Comments grab, if Modal open
   const { data: commentsData, refetch: refetchComments } = useGetCommentsByVideoId(
     currentVideoId || '',
-    !!currentVideoId && !useHardcodedFeed
+    !!currentVideoId
   );
 
-  // comments für das Modal: API oder Demo
-  const modalComments = useHardcodedFeed
-    ? (currentVideo?.comments || [])
-    : commentsData || [];
+  const modalComments = commentsData || [];
 
-  // Set Video-Ref
+  // Video-Ref set
   const setVideoRef = (el: HTMLVideoElement | null, id: string) => {
     videoRefs.current[id] = el;
   };

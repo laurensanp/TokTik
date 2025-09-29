@@ -25,7 +25,7 @@ export function useUploadVideo() {
 
 // JSON als String anhängen
         formData.append("video", JSON.stringify({
-            description: "Mein cooles Video",
+            description: "Nigga Video",
             author: {
                 id: "68d9938ad69c8d907a7eb9ac",
                 handle: "real_laurens_official",
