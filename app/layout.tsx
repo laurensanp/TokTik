@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "T-Nigger Page",
-  description: "Generate New Nigger",
+  title: "Toktik",
+  description: "Toktik - The modern video sharing platform.",
 };
 
 export default function RootLayout({
@@ -34,7 +34,7 @@ export default function RootLayout({
     <Providers>
       <html lang="en">
         <body
-          className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+          className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black text-white min-h-screen`}
         >
           <Header logo={TOKTIK_LOGO} disabledPaths={disableHeaderPaths} />
           <div className="h-screen w-full">{children}</div>

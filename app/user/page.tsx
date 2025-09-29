@@ -6,7 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { getIpAddress } from "@/utils/getIpAddress";
 
-const NiggaPage = () => {
+export default function UserPage() {
   const { mutateAsync: createNigger } = useCreateNewUser();
   const { data } = useGetAllUsers();
 
@@ -45,6 +45,13 @@ const NiggaPage = () => {
 
   return (
     <>
+      <div className="p-8 text-center">
+        <h1 className="text-3xl font-bold mb-4">User Profile</h1>
+        <p>
+          Welcome to your user dashboard. Here you can manage your account and
+          view your videos.
+        </p>
+      </div>
       <div className="flex flex-col gap-4 items-center">
         <button
           onClick={handleCreateNigger}
@@ -82,6 +89,4 @@ const NiggaPage = () => {
       </div>
     </>
   );
-};
-
-export default NiggaPage;
+}
