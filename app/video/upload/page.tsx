@@ -2,9 +2,11 @@
 "use client";
 import React, { useState, useRef } from "react";
 import { useUploadVideo } from "@/hooks/video/useUploadVideo";
+import { useDownloadVideoFromUrl } from "@/hooks/video/useDownloadVideoFromUrl";
 
 export default function UploadPage() {
   const [file, setFile] = useState<File | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string>("");
   const inputRef = useRef<HTMLInputElement>(null);
   const {
     uploadVideo,
@@ -15,6 +17,9 @@ export default function UploadPage() {
     setMessage,
     setSuccess,
   } = useUploadVideo();
+  const downloadHook = useDownloadVideoFromUrl();
+
+  const isTikTokUrl = (url: string) => /^(https?:\/\/)?(www\.)?tiktok\.com\/(@[A-Za-z0-9_.-]+)\/video\/\d+/.test(url.trim());
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -40,6 +45,26 @@ export default function UploadPage() {
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     await uploadVideo(file);
+  };
+
+  const handleUrlUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!videoUrl.trim()) return;
+    if (!isTikTokUrl(videoUrl)) {
+      setMessage("Only TikTok video links are allowed (format: https://www.tiktok.com/@user/video/1234567890123456789)");
+      setSuccess(false);
+      return;
+    }
+    setMessage("");
+    setSuccess(null);
+    const downloadedFile = await downloadHook.downloadVideo(videoUrl.trim());
+    if (!downloadedFile) {
+      setMessage("Download failed: " + (downloadHook.error || "Unknown error"));
+      setSuccess(false);
+      return;
+    }
+    await uploadVideo(downloadedFile);
+    setVideoUrl("");
   };
 
   return (
@@ -74,6 +99,34 @@ export default function UploadPage() {
           >
             {loading ? "Uploading..." : "Upload"}
           </button>
+        </form>
+        <form onSubmit={handleUrlUpload} className="flex flex-col gap-4">
+          <input
+            type="text"
+            placeholder="Paste TikTok link (https://www.tiktok.com/@user/video/...)"
+            value={videoUrl}
+            onChange={e => setVideoUrl(e.target.value)}
+            className={`px-4 py-2 rounded-xl border bg-black text-white placeholder-gray-500 ${videoUrl && !isTikTokUrl(videoUrl) ? 'border-red-600' : 'border-gray-700'}`}
+            disabled={loading || downloadHook.loading}
+          />
+          {videoUrl && !isTikTokUrl(videoUrl) && (
+            <span className="text-xs text-red-500">Invalid TikTok video URL</span>
+          )}
+          {downloadHook.progress !== null && (
+            <div className="w-full h-2 bg-gray-700 rounded overflow-hidden">
+              <div className="h-full bg-purple-500 transition-all" style={{ width: `${downloadHook.progress}%` }} />
+            </div>
+          )}
+          <button
+            type="submit"
+            disabled={loading || downloadHook.loading || !videoUrl.trim()}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-xl transition-colors disabled:opacity-50"
+          >
+            {downloadHook.loading ? "Downloading..." : loading ? "Uploading..." : "Download & Upload"}
+          </button>
+          {downloadHook.error && !success && (
+            <div className="text-xs text-red-400">{downloadHook.error}</div>
+          )}
         </form>
         {loading && (
           <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden">

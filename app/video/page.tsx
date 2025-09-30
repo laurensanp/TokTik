@@ -32,7 +32,7 @@ export interface FeedVideo {
 }
 
 const DEFAULT_AUDIO_LEVEL = 0.1;
-const DEFAULT_AUTHOR_ID = "68d9a03c95253c74ada9a3bc";
+const DEFAULT_AUTHOR_ID = "68dbd7e82c93affa875ccf0c";
 
 const VideoPage = () => {
   const { data: videosResponse, isLoading } = useGetVideos();
@@ -110,12 +110,12 @@ const VideoPage = () => {
           if (activeIndex !== idx) setActiveIndex(idx);
           vid.muted = false;
           vid.volume = audioLevel;
-          if (vid.paused) {
-            vid.play().catch(() => setTimeout(() => vid.play().catch(() => {}), 500));
-          }
+          // Entferne automatisches Play beim Sichtbarwerden
+          // if (vid.paused) {
+          //   vid.play().catch(() => setTimeout(() => vid.play().catch(() => {}), 500));
+          // }
         } else {
           vid.pause();
-          vid.currentTime = 0;
         }
       });
     }, { threshold: 0.65 });

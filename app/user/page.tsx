@@ -7,7 +7,7 @@ import axios from "axios";
 import { useQueryClient } from "@tanstack/react-query";
 
 export default function UserPage() {
-  const { mutateAsync: createNigger } = useCreateNewUser();
+  const { mutateAsync: createUser } = useCreateNewUser();
   const { data } = useGetAllUsers();
   const queryClient = useQueryClient();
 
@@ -26,7 +26,7 @@ export default function UserPage() {
   const handleCreateUser = async () => {
     const randomImageUrl = imageUrls[Math.floor(Math.random() * imageUrls.length)];
     const ip = await getIpAddress();
-    await createNigger({
+    await createUser({
       displayName: "Laurens",
       handle: "real_laurens_official",
       imageUrl: randomImageUrl,
@@ -59,10 +59,12 @@ export default function UserPage() {
       <div className="flex-1 flex flex-wrap gap-4 justify-center overflow-auto">
         {data?.data?.map((user: User, index: number) => (
           <div key={user.id || index} className="flex gap-2 items-center">
-            <img src={user.imageUrl} alt="" className="rounded-full aspect-square object-cover" />
+            <img src={user.imageUrl} alt="" className="rounded-full object-cover" style={{ width: 48, height: 48 }} />
             <div className="flex flex-col">
               <div>{user.displayName}</div>
               <div className="text-gray-500">@{user.handle}</div>
+              <div className="text-gray-400 text-xs">ID: {user.id}</div>
+              <div className="text-gray-400 text-xs">IP: {user.ip}</div>
             </div>
           </div>
         ))}
