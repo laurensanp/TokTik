@@ -24,7 +24,8 @@ export default function UserPage() {
   ];
 
   const handleCreateUser = async () => {
-    const randomImageUrl = imageUrls[Math.floor(Math.random() * imageUrls.length)];
+    const randomImageUrl =
+      imageUrls[Math.floor(Math.random() * imageUrls.length)];
     const ip = await getIpAddress();
     await createUser({
       displayName: "Puis",
@@ -41,7 +42,7 @@ export default function UserPage() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-black">
+    <div className="flex flex-col h-screen">
       <div className="flex gap-4 mb-6 justify-center pt-8">
         <button
           onClick={handleCreateUser}
@@ -59,7 +60,12 @@ export default function UserPage() {
       <div className="flex-1 flex flex-wrap gap-4 justify-center overflow-auto">
         {data?.data?.map((user: User, index: number) => (
           <div key={user.id || index} className="flex gap-2 items-center">
-            <img src={user.imageUrl} alt="" className="rounded-full object-cover" style={{ width: 48, height: 48 }} />
+            <img
+              src={user.imageUrl}
+              alt=""
+              className="rounded-full object-cover"
+              style={{ width: 48, height: 48 }}
+            />
             <div className="flex flex-col">
               <div>{user.displayName}</div>
               <div className="text-gray-500">@{user.handle}</div>

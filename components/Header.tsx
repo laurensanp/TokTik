@@ -1,5 +1,7 @@
 "use client";
 
+import { useAuth } from "@/context/auth/AuthProvider";
+import { ClockFading } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { FC } from "react";
@@ -15,11 +17,13 @@ interface HeaderProps {
 }
 
 const Header: FC<HeaderProps> = ({ logo, disabledPaths = [] }) => {
+  const { user, isAuthenticated } = useAuth();
+  console.log({ user });
   const path = usePathname();
   const links: HeaderItem[] = [
     {
-        name: "Uploade TokTik™️ now",
-        link: "/video/upload",
+      name: "Uploade TokTik™️ now",
+      link: "/video/upload",
     },
     {
       name: "Watch TokTik™️ now",
@@ -29,6 +33,10 @@ const Header: FC<HeaderProps> = ({ logo, disabledPaths = [] }) => {
       name: "User?",
       link: "/user",
     },
+    {
+      name: "Auth",
+      link: "/auth",
+    },
   ];
   return (
     !disabledPaths.includes(path) && (
@@ -36,7 +44,9 @@ const Header: FC<HeaderProps> = ({ logo, disabledPaths = [] }) => {
         {/* Logo added back */}
         <div className="flex items-center">
           {logo && (
-            <img src={logo} alt="Toktik Logo" className="h-10 w-auto mr-4" />
+            <Link href="/">
+              <img src={logo} alt="Toktik Logo" className="h-10 w-auto mr-4" />
+            </Link>
           )}
         </div>
         <div className="flex items-center gap-6">
@@ -54,6 +64,17 @@ const Header: FC<HeaderProps> = ({ logo, disabledPaths = [] }) => {
               {item.name}
             </Link>
           ))}
+
+          {isAuthenticated && (
+            <div className="shrink-0">
+              <Link href={`/profile/${user?.user?.id}`}>
+                <img
+                  src={user?.user?.avatar}
+                  className="rounded-full size-14"
+                />
+              </Link>
+            </div>
+          )}
         </div>
       </nav>
     )
