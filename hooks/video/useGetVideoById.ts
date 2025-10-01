@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 
-const useGetVideoById = (id: string | undefined) => {
+const useGetVideoById = (id: string | undefined, enabled: boolean = true) => {
   return useQuery({
     queryKey: ["GET_VIDEO_BY_ID", id],
-    enabled: !!id,
+    enabled: !!id && enabled,
     queryFn: async () => {
       return axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/video/${id}`);
     },
