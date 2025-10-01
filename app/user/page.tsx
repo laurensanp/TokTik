@@ -27,8 +27,8 @@ export default function UserPage() {
     const randomImageUrl = imageUrls[Math.floor(Math.random() * imageUrls.length)];
     const ip = await getIpAddress();
     await createUser({
-      displayName: "Laurens",
-      handle: "real_laurens_official",
+      displayName: "Puis",
+      handle: "puis_laries_official",
       imageUrl: randomImageUrl,
       ip,
       watchedVideos: [],
