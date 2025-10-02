@@ -3,8 +3,8 @@
 import useCreateNewUser from "@/hooks/user/useCreateNewUser";
 import useGetAllUsers from "@/hooks/user/useGetAllUsers";
 import { getIpAddress } from "@/utils/getIpAddress";
-import axios from "axios";
 import { useQueryClient } from "@tanstack/react-query";
+import {ApiInstance} from "@/context/auth/AuthProvider";
 
 export default function UserPage() {
   const { mutateAsync: createUser } = useCreateNewUser();
@@ -37,7 +37,7 @@ export default function UserPage() {
   };
 
   const handleDeleteAllUsers = async () => {
-    await axios.delete(`${process.env.NEXT_PUBLIC_API_BASE_URL}/user`);
+    await ApiInstance.delete(`${process.env.NEXT_PUBLIC_API_BASE_URL}/user`);
     await queryClient.invalidateQueries({ queryKey: ["GET_ALL_USERS"] });
   };
 

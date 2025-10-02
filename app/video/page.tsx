@@ -10,6 +10,11 @@ import { FeedVideo } from "@/types/video";
 const DEFAULT_AUDIO_LEVEL = 0.1;
 const DEFAULT_AUTHOR_ID = "68dd538d5e07979a30262a31";
 
+const STORAGE_KEYS = {
+  lastVideoId: "toktik:lastVideoId",
+  volume: "toktik:volume"
+};
+
 const VideoPage = () => {
   // IDs laden
   const { data: idsResponse, isLoading: idsLoading } = useGetVideoIds();
@@ -31,6 +36,9 @@ const VideoPage = () => {
 
   const createCommentMutation = useCreateComment();
 
+  // Videos (lazy) Map id->FeedVideo
+  const videoMap: Record<string, FeedVideo> = useLazyVideos(videoIds, fetchableIds);
+
   // Comments Daten für aktuell geöffnetes Video
   const currentVideoId = openCommentsFor;
   const { data: commentsData, refetch: refetchComments } = useGetCommentsByVideoId(
@@ -46,8 +54,27 @@ const VideoPage = () => {
     }
   }, [currentVideoId, commentsData]);
 
+  // Lautstärke aus localStorage wiederherstellen (einmalig)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const storedVol = window.localStorage.getItem(STORAGE_KEYS.volume);
+      if (storedVol !== null) {
+        const v = parseFloat(storedVol);
+        if (!Number.isNaN(v) && v >= 0 && v <= 1) setAudioLevel(v);
+      }
+    } catch {}
+  }, []);
+
+  // Volume Änderungen persistieren
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try { window.localStorage.setItem(STORAGE_KEYS.volume, audioLevel.toString()); } catch {}
+  }, [audioLevel]);
+
   // Intersection Observer für aktives Video + Lazy Load Trigger
   const lastActiveIndexRef = useRef<number>(0);
+  const restoredRef = useRef(false);
   useEffect(() => {
     if (videoIds.length === 0) return;
     const observer = new IntersectionObserver((entries) => {
@@ -57,7 +84,7 @@ const VideoPage = () => {
         const vidEl = videoRefs.current[id];
         if (entry.isIntersecting) {
           const idx = videoIds.indexOf(id);
-            if (idx !== -1 && activeIndex !== idx) setActiveIndex(idx);
+          if (idx !== -1 && activeIndex !== idx) setActiveIndex(idx);
           setFetchableIds(prev => {
             const next = new Set(prev);
             next.add(id);
@@ -68,7 +95,6 @@ const VideoPage = () => {
             return next;
           });
         } else {
-          // Nicht mehr sichtbar: pausieren & resetten
           if (vidEl) {
             try { vidEl.pause(); } catch {}
             try { vidEl.currentTime = 0; } catch {}
@@ -85,19 +111,63 @@ const VideoPage = () => {
     return () => observer.disconnect();
   }, [videoIds, activeIndex]);
 
-  // Alle aktuell gefetchten Videos (Map id->FeedVideo)
-  const videoMap: Record<string, FeedVideo> = useLazyVideos(videoIds, fetchableIds);
-
-  // Volume auf alle geladene Video Elemente anwenden
+  // Aktives Video & Nachbarn beim Scrollen laden (bereits enthalten), plus Restore beim ersten Laden
   useEffect(() => {
-    Object.values(videoRefs.current).forEach((v: HTMLVideoElement | null) => {
+    if (restoredRef.current) return;
+    if (videoIds.length === 0) return;
+    if (typeof window === 'undefined') return;
+    try {
+      const storedId = window.sessionStorage.getItem(STORAGE_KEYS.lastVideoId) || window.localStorage.getItem(STORAGE_KEYS.lastVideoId);
+      if (storedId) {
+        const idx = videoIds.indexOf(storedId);
+        if (idx !== -1) {
+          setActiveIndex(idx);
+          setFetchableIds(prev => {
+            const next = new Set(prev);
+            next.add(storedId);
+            const prevId = videoIds[idx - 1];
+            const nextId = videoIds[idx + 1];
+            if (prevId) next.add(prevId);
+            if (nextId) next.add(nextId);
+            return next;
+          });
+          // Scroll zum gespeicherten Video nach Mount der Container
+          setTimeout(() => {
+            const el = containerRefs.current[storedId];
+            if (el) {
+              try { el.scrollIntoView({ block: 'start', behavior: 'auto' }); } catch {}
+            }
+          }, 0);
+        }
+      }
+    } catch {}
+    restoredRef.current = true;
+  }, [videoIds]);
+
+  // Aktives Video in Storage merken
+  useEffect(() => {
+    const id = videoIds[activeIndex];
+    if (!id) return;
+    if (typeof window === 'undefined') return;
+    try {
+      window.sessionStorage.setItem(STORAGE_KEYS.lastVideoId, id);
+      window.localStorage.setItem(STORAGE_KEYS.lastVideoId, id);
+    } catch {}
+  }, [activeIndex, videoIds]);
+
+  const pendingUnmuteRef = useRef(false);
+  const attemptedPlayRef = useRef<Set<string>>(new Set());
+
+  // Laufende Volume-Anpassung ohne Neustart
+  useEffect(() => {
+    Object.values(videoRefs.current).forEach(v => {
       if (!v) return;
-      v.volume = audioLevel;
       v.muted = audioLevel === 0;
+      v.volume = audioLevel;
     });
   }, [audioLevel]);
 
-  // Aktives Video auto-play
+  // Video Play/Pause
   useEffect(() => {
     const prevIdx = lastActiveIndexRef.current;
     const prevId = videoIds[prevIdx];
@@ -111,25 +181,70 @@ const VideoPage = () => {
     const activeId = videoIds[activeIndex];
     if (!activeId) return;
     const vid = videoRefs.current[activeId];
+    pendingUnmuteRef.current = false;
+    attemptedPlayRef.current.delete(activeId);
     if (vid) {
       try { vid.pause(); } catch {}
       try { vid.currentTime = 0; } catch {}
-      vid.muted = false;
-      vid.volume = audioLevel; // aktueller Wert wird beim Rendern mitgenommen
+      vid.muted = audioLevel === 0; // gewünschte Lautstärke
+      vid.volume = audioLevel;
+      const attemptPlayWithAudio = () => vid.play();
       setTimeout(() => {
-        if (!vid) return;
-        vid.play().catch(() => setTimeout(() => vid.play().catch(() => {}), 300));
+        attemptPlayWithAudio().then(() => {
+          attemptedPlayRef.current.add(activeId);
+        }).catch(() => {
+          if (audioLevel > 0) {
+            vid.muted = true;
+            vid.volume = 0;
+            vid.play().then(() => {
+              attemptedPlayRef.current.add(activeId);
+              pendingUnmuteRef.current = true;
+              const restore = () => {
+                if (!pendingUnmuteRef.current) return;
+                pendingUnmuteRef.current = false;
+                vid.muted = audioLevel === 0;
+                vid.volume = audioLevel;
+              };
+              window.addEventListener('pointerdown', restore, { once: true });
+              window.addEventListener('keydown', restore, { once: true });
+            }).catch(() => {});
+          }
+        });
       }, 30);
     }
     lastActiveIndexRef.current = activeIndex;
   }, [activeIndex, videoIds]);
 
-  // Video Play/Pause
-  const handleVideoClick = (id: string) => {
-    const video = videoRefs.current[id];
-    if (!video) return;
-    video.paused ? video.play().catch(() => {}) : video.pause();
-  };
+  // Falls aktives Video erst später geladen (Element+URL) -> Autoplay nachladen
+  useEffect(() => {
+    const activeId = videoIds[activeIndex];
+    if (!activeId) return;
+    if (!videoMap[activeId]?.url) return; // Daten noch nicht da
+    const vid = videoRefs.current[activeId];
+    if (!vid) return; // Element noch nicht im DOM
+    if (attemptedPlayRef.current.has(activeId)) return; // schon versucht
+    vid.muted = audioLevel === 0;
+    vid.volume = audioLevel;
+    vid.play().then(() => {
+      attemptedPlayRef.current.add(activeId);
+    }).catch(() => {
+      if (audioLevel > 0) {
+        vid.muted = true; vid.volume = 0;
+        vid.play().then(() => {
+          attemptedPlayRef.current.add(activeId);
+          pendingUnmuteRef.current = true;
+          const restore = () => {
+            if (!pendingUnmuteRef.current) return;
+            pendingUnmuteRef.current = false;
+            vid.muted = audioLevel === 0;
+            vid.volume = audioLevel;
+          };
+          window.addEventListener('pointerdown', restore, { once: true });
+          window.addEventListener('keydown', restore, { once: true });
+        }).catch(() => {});
+      }
+    });
+  }, [videoMap, activeIndex, videoIds, audioLevel]);
 
   const openComments = (id: string) => setOpenCommentsFor(id);
   const closeComments = () => setOpenCommentsFor(null);
@@ -143,6 +258,17 @@ const VideoPage = () => {
         setCommentText("");
       }
     });
+  };
+
+  // Klick toggelt Play/Pause
+  const handleVideoClick = (id: string) => {
+    const v = videoRefs.current[id];
+    if (!v) return;
+    if (v.paused) {
+      v.play().catch(() => {});
+    } else {
+      try { v.pause(); } catch {}
+    }
   };
 
   // Ladeanzeige / leer
