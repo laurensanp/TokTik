@@ -26,7 +26,7 @@ interface AuthContextValue {
 }
 
 export const ApiInstance = axios.create({
-  baseURL: "http://localhost:8080",
+  baseURL: "http://217.234.136.61:8080",
   withCredentials: true,
 });
 

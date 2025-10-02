@@ -1,7 +1,6 @@
 "use client";
 
 import { ApiInstance, useAuth } from "@/context/auth/AuthProvider";
-import { useQuery } from "@tanstack/react-query";
 
 const AuthPage = () => {
   const { user, isAuthenticated, logout } = useAuth();
@@ -11,7 +10,7 @@ const AuthPage = () => {
   };
 
   const handleLogin = () => {
-      window.location.href = "http://localhost:8080/oauth2/authorization/discord";
+      window.location.href = "http://217.234.136.61:8080/oauth2/authorization/discord";
   }
 
   console.log({user})
