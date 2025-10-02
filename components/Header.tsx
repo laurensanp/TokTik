@@ -30,10 +30,6 @@ const Header: FC<HeaderProps> = ({ logo, disabledPaths = [] }) => {
       link: "/video",
     },
     {
-      name: "User?",
-      link: "/user",
-    },
-    {
       name: "Auth",
       link: "/auth",
     },
