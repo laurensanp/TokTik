@@ -115,15 +115,14 @@ const VideoPage = () => {
       try { vid.pause(); } catch {}
       try { vid.currentTime = 0; } catch {}
       vid.muted = false;
-      vid.volume = audioLevel;
-      // leicht verzögert starten um sicheres Reset zu gewährleisten
+      vid.volume = audioLevel; // aktueller Wert wird beim Rendern mitgenommen
       setTimeout(() => {
         if (!vid) return;
         vid.play().catch(() => setTimeout(() => vid.play().catch(() => {}), 300));
       }, 30);
     }
     lastActiveIndexRef.current = activeIndex;
-  }, [activeIndex, videoIds, audioLevel]);
+  }, [activeIndex, videoIds]);
 
   // Video Play/Pause
   const handleVideoClick = (id: string) => {

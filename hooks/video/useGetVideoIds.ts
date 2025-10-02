@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import axios from "axios";
+import {ApiInstance} from "@/context/auth/AuthProvider";
 
 /**
  * Holt nur die Liste aller Video-IDs.
@@ -8,8 +8,8 @@ import axios from "axios";
 const useGetVideoIds = () => {
   return useQuery({
     queryKey: ["GET_VIDEO_IDS"],
-    queryFn: async () => axios.get<string[]>(`${process.env.NEXT_PUBLIC_API_BASE_URL}/video/ids`),
-    staleTime: 60_000,
+    queryFn: async () => ApiInstance.get<string[]>(`${process.env.NEXT_PUBLIC_API_BASE_URL}/video/ids`),
+
   });
 };
 

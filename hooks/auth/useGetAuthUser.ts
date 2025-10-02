@@ -6,7 +6,7 @@ const useGetAuthUser = () => {
         queryKey: ["GET_AUTH_USER"],
         queryFn: async () => {
             try {
-                return await ApiInstance.get("/auth/status")
+                return await ApiInstance.get("/user/me")
             } catch (err) {
                 console.error("auth check failed", err)
             }

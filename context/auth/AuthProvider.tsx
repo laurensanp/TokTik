@@ -46,7 +46,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   console.log({ authStatus });
 
   const value = {
-    user: user,
+    user: user?.data,
     isAuthenticated: authStatus?.authenticated,
     logout: mutateAsync,
   };

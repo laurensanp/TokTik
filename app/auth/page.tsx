@@ -14,11 +14,13 @@ const AuthPage = () => {
       window.location.href = "http://localhost:8080/oauth2/authorization/discord";
   }
 
+  console.log({user})
+
   return (
     <div className="p-24">
       {isAuthenticated ? (
         <div className="flex flex-col space-y-12">
-          <div>Angemeldet als {user?.user?.username}</div>
+          <div>Angemeldet als {user?.handle}</div>
           <a
             className="rounded-lg bg-red-900 p-4 cursor-pointer w-fit"
             onClick={handleLogout}

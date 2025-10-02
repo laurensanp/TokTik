@@ -1,6 +1,6 @@
 import { useQueries } from "@tanstack/react-query";
-import axios from "axios";
 import { FeedVideo } from "@/types/video";
+import {ApiInstance} from "@/context/auth/AuthProvider";
 
 /**
  * Verwendet useQueries um Videos nur für jene IDs zu laden, die in fetchableIds enthalten sind.
@@ -13,7 +13,7 @@ export const useLazyVideos = (videoIds: string[], fetchableIds: Set<string>) => 
       enabled: fetchableIds.has(id),
       staleTime: 60_000,
       queryFn: async () => {
-        const res = await axios.get<FeedVideo>(`${process.env.NEXT_PUBLIC_API_BASE_URL}/video/${id}`);
+        const res = await ApiInstance.get<FeedVideo>(`${process.env.NEXT_PUBLIC_API_BASE_URL}/video/${id}`);
         return res.data;
       }
     }))

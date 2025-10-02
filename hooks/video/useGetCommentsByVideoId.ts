@@ -32,6 +32,7 @@ const useGetCommentsByVideoId = (videoId: string, enabled: boolean = false) => {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: "include"
       });
 
       console.log('Comment fetch response status:', response.status);
