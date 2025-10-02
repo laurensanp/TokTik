@@ -18,7 +18,7 @@ interface HeaderProps {
 
 const Header: FC<HeaderProps> = ({ logo, disabledPaths = [] }) => {
   const { user, isAuthenticated } = useAuth();
-  console.log({ user });
+  console.log({ nigger: user });
   const path = usePathname();
   const links: HeaderItem[] = [
     {
@@ -67,11 +67,8 @@ const Header: FC<HeaderProps> = ({ logo, disabledPaths = [] }) => {
 
           {isAuthenticated && (
             <div className="shrink-0">
-              <Link href={`/profile/${user?.user?.id}`}>
-                <img
-                  src={user?.user?.avatar}
-                  className="rounded-full size-14"
-                />
+              <Link href={`/user/${user?.id}`}>
+                <img src={user?.imageUrl} className="rounded-full size-14" />
               </Link>
             </div>
           )}

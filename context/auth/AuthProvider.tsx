@@ -13,6 +13,7 @@ import {
 import axios from "axios";
 import useGetAuthUser from "@/hooks/auth/useGetAuthUser";
 import useLogout from "@/hooks/auth/useLogout";
+import useGetAuthStatus from "@/hooks/auth/useGetAuthStatus";
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -22,7 +23,6 @@ interface AuthContextValue {
   user?: any;
   logout: any;
   isAuthenticated: boolean;
-  setIsAuthenticated: Dispatch<SetStateAction<boolean>>;
 }
 
 export const ApiInstance = axios.create({
@@ -40,19 +40,15 @@ export const useAuth = (): AuthContextValue => {
 };
 
 export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
-  const { data: user, isSuccess: loginSuccess } = useGetAuthUser();
-  const { mutateAsync, isSuccess: logoutSuccess } = useLogout();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  useEffect(() => {
-    setIsAuthenticated(!!user?.data);
-  }, [user]);
+  const { data: user } = useGetAuthUser();
+  const { mutateAsync } = useLogout();
+  const { data: authStatus } = useGetAuthStatus();
+  console.log({ authStatus });
 
   const value = {
-    user: user?.data,
-    isAuthenticated,
+    user: user,
+    isAuthenticated: authStatus?.authenticated,
     logout: mutateAsync,
-    setIsAuthenticated,
   };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
