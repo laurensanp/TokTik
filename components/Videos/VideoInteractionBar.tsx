@@ -1,4 +1,4 @@
-    import { MessageCircle } from "lucide-react";
+import { MessageCircle } from "lucide-react";
 
 interface VideoInteractionBarProps {
   comments?: number;
@@ -12,7 +12,7 @@ const VideoInteractionBar = ({ comments = 0, onCommentsClick }: VideoInteraction
         className="flex flex-col items-center gap-1 group"
         onClick={onCommentsClick}
         type="button"
-        aria-label="Kommentare anzeigen"
+        aria-label="Show comments"
       >
         <MessageCircle className="w-8 h-8 text-white group-hover:scale-110 transition-transform" />
         <span className="text-white text-sm font-medium drop-shadow-lg">

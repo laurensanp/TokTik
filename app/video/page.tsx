@@ -16,14 +16,14 @@ const STORAGE_KEYS = {
 };
 
 const VideoPage = () => {
-  // IDs laden
+  // Load all video ids
   const { data: idsResponse, isLoading: idsLoading } = useGetVideoIds();
   const videoIds: string[] = Array.isArray(idsResponse?.data) ? idsResponse!.data : [];
 
-  // Welche IDs sollen gefetched werden
+  // Track which ids should be fetched (lazy loading)
   const [fetchableIds, setFetchableIds] = useState<Set<string>>(new Set());
 
-  // Refs
+  // Refs for DOM elements
   const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
   const containerRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
@@ -47,14 +47,14 @@ const VideoPage = () => {
   );
   const modalComments = commentsData || [];
 
-  // Kommentaranzahl aktualisieren sobald Modal-Daten da
+  // Update comment count when modal data changes
   useEffect(() => {
     if (currentVideoId && commentsData) {
       setVideoCommentCounts(prev => ({ ...prev, [currentVideoId]: commentsData.length }));
     }
   }, [currentVideoId, commentsData]);
 
-  // Lautstärke aus localStorage wiederherstellen (einmalig)
+  // Restore volume from localStorage (once)
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
@@ -66,13 +66,13 @@ const VideoPage = () => {
     } catch {}
   }, []);
 
-  // Volume Änderungen persistieren
+  // Persist volume changes
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try { window.localStorage.setItem(STORAGE_KEYS.volume, audioLevel.toString()); } catch {}
   }, [audioLevel]);
 
-  // Intersection Observer für aktives Video + Lazy Load Trigger
+  // Intersection Observer: determine active video + prime neighbors for fetch
   const lastActiveIndexRef = useRef<number>(0);
   const restoredRef = useRef(false);
   useEffect(() => {
@@ -111,7 +111,7 @@ const VideoPage = () => {
     return () => observer.disconnect();
   }, [videoIds, activeIndex]);
 
-  // Aktives Video & Nachbarn beim Scrollen laden (bereits enthalten), plus Restore beim ersten Laden
+  // Restore last active video on first load (if saved)
   useEffect(() => {
     if (restoredRef.current) return;
     if (videoIds.length === 0) return;
@@ -144,7 +144,7 @@ const VideoPage = () => {
     restoredRef.current = true;
   }, [videoIds]);
 
-  // Aktives Video in Storage merken
+  // Persist active video id
   useEffect(() => {
     const id = videoIds[activeIndex];
     if (!id) return;
@@ -158,7 +158,7 @@ const VideoPage = () => {
   const pendingUnmuteRef = useRef(false);
   const attemptedPlayRef = useRef<Set<string>>(new Set());
 
-  // Laufende Volume-Anpassung ohne Neustart
+  // Apply volume live without restart
   useEffect(() => {
     Object.values(videoRefs.current).forEach(v => {
       if (!v) return;
@@ -167,7 +167,7 @@ const VideoPage = () => {
     });
   }, [audioLevel]);
 
-  // Video Play/Pause
+  // Handle active video change: autoplay, pause previous
   useEffect(() => {
     const prevIdx = lastActiveIndexRef.current;
     const prevId = videoIds[prevIdx];
@@ -215,7 +215,7 @@ const VideoPage = () => {
     lastActiveIndexRef.current = activeIndex;
   }, [activeIndex, videoIds]);
 
-  // Falls aktives Video erst später geladen (Element+URL) -> Autoplay nachladen
+  // Autoplay fallback when video element/data appears late
   useEffect(() => {
     const activeId = videoIds[activeIndex];
     if (!activeId) return;
@@ -260,7 +260,7 @@ const VideoPage = () => {
     });
   };
 
-  // Klick toggelt Play/Pause
+  // Click toggles play / pause
   const handleVideoClick = (id: string) => {
     const v = videoRefs.current[id];
     if (!v) return;
@@ -271,12 +271,12 @@ const VideoPage = () => {
     }
   };
 
-  // Ladeanzeige / leer
+  // Loading / empty states
   if (idsLoading && videoIds.length === 0) {
-    return <div className="flex h-screen w-full items-center justify-center text-sm text-white/60 bg-black">Lade Videos...</div>;
+    return <div className="flex h-screen w-full items-center justify-center text-sm text-white/60 bg-black">Loading videos...</div>;
   }
   if (videoIds.length === 0 && !idsLoading) {
-    return <div className="flex h-screen w-full items-center justify-center text-sm text-white/60 bg-black">Keine Videos gefunden.</div>;
+    return <div className="flex h-screen w-full items-center justify-center text-sm text-white/60 bg-black">No videos found.</div>;
   }
 
   return (

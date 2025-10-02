@@ -82,7 +82,7 @@ const VideoFeedItem: React.FC<Props> = ({
         ) : (
           <div className="absolute inset-0 w-full h-full rounded-lg bg-gradient-to-b from-neutral-800 to-neutral-900 flex flex-col items-center justify-center gap-3 text-white/60 text-xs animate-pulse select-none">
             <div className="w-16 h-16 rounded-full border-2 border-white/20 border-t-white/60 animate-spin" />
-            <span>Video wird geladen...</span>
+            <span>Loading video...</span>
             <span className="text-[10px] opacity-40">#{index + 1} / {total}</span>
           </div>
         )}
@@ -116,8 +116,6 @@ const VideoFeedItem: React.FC<Props> = ({
         {/* Interaction Bar */}
         <div className="absolute right-3 top-[60%] -translate-y-1/2 z-10 flex flex-col gap-3 items-center">
           <VideoInteractionBar
-            duration={0}
-            likes={videoData?.likes || 0}
             comments={displayedCommentCount}
             onCommentsClick={() => isLoaded && onOpenComments(id)}
           />
@@ -160,7 +158,7 @@ const VideoFeedItem: React.FC<Props> = ({
                 type="text"
                 value={commentText}
                 onChange={e => setCommentText(e.target.value)}
-                placeholder="Kommentar schreiben..."
+                placeholder="Write a comment..."
                 disabled={createCommentMutation.isPending}
                 className="flex-1 px-3 py-2 text-sm rounded-lg border focus:ring-1 focus:ring-black focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
               />
@@ -176,7 +174,7 @@ const VideoFeedItem: React.FC<Props> = ({
         )}
 
         {!isLoaded && isActive && (
-          <div className="absolute bottom-4 left-3 text-[11px] text-white/70">Lade Video...</div>
+          <div className="absolute bottom-4 left-3 text-[11px] text-white/70">Loading video...</div>
         )}
       </div>
     </div>
