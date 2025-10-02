@@ -10,7 +10,8 @@ const useGetAuthUser = () => {
             } catch (err) {
                 console.error("auth check failed", err)
             }
-        }
+        },
+        retry: false
     })
 }
 export default useGetAuthUser;

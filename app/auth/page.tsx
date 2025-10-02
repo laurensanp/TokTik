@@ -10,14 +10,9 @@ const AuthPage = () => {
     logout();
   };
 
-  const query = useQuery({
-    queryKey: ["TEST"],
-    queryFn: async () => {
-      return await ApiInstance.get("/test");
-    },
-    enabled: isAuthenticated,
-  });
-
+  const handleLogin = () => {
+      window.location.href = "http://localhost:8080/oauth2/authorization/discord";
+  }
 
   return (
     <div className="p-24">
@@ -33,12 +28,11 @@ const AuthPage = () => {
         </div>
       ) : (
         <div>
-          <a
-            className="rounded-lg bg-[#7289da] p-4 cursor-pointer"
-            href="http://localhost:8080/oauth2/authorization/discord"
-          >
+          <div
+              onClick={handleLogin}
+            className="rounded-lg bg-[#7289da] p-4 cursor-pointer">
             Mit Discord anmelden
-          </a>
+          </div>
         </div>
       )}
     </div>
