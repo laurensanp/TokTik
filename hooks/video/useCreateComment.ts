@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {getToken} from "@/lib/authToken";
 
 interface CreateCommentRequest {
   videoId: string;
@@ -25,11 +26,13 @@ const useCreateComment = () => {
     mutationFn: async ({ videoId, authorId, content }) => {
       const url = `${process.env.NEXT_PUBLIC_API_BASE_URL}/comment/${videoId}`;
       const body = { authorId, content };
-      const response = await fetch(url, {
+        const token = getToken();
+        const response = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json',"Authorization": `Bearer ${token}`,
+        },
         body: JSON.stringify(body),
-          credentials: "include"
+          credentials: "include",
       });
       if (!response.ok) {
         const errorText = await response.text();

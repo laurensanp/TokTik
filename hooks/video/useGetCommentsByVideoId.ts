@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import {getToken} from "@/lib/authToken";
 
 interface CommentAuthor {
   id: string;
@@ -27,10 +28,12 @@ const useGetCommentsByVideoId = (videoId: string, enabled: boolean = false) => {
     queryFn: async () => {
       console.log('Fetching comments for video:', videoId);
 
+      const token = getToken();
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/comment/${videoId}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+            "Authorization": `Bearer ${token}`,
         },
         credentials: "include"
       });

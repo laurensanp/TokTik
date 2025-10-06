@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import {getToken} from "@/lib/authToken";
 
 interface User {
   id: string;
@@ -22,10 +23,12 @@ const useGetLatestUser = () => {
   return useQuery<User | null>({
     queryKey: ['latestUser'],
     queryFn: async () => {
+        const token = getToken()
       const response = await fetch('/user', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+            "Authorization": `Bearer ${token}`
         },
           credentials: "include"
       });

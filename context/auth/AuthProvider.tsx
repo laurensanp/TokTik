@@ -14,6 +14,7 @@ import axios from "axios";
 import useGetAuthUser from "@/hooks/auth/useGetAuthUser";
 import useLogout from "@/hooks/auth/useLogout";
 import useGetAuthStatus from "@/hooks/auth/useGetAuthStatus";
+import {getToken} from "@/lib/authToken";
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -26,8 +27,11 @@ interface AuthContextValue {
 }
 
 export const ApiInstance = axios.create({
-  baseURL: "http://217.234.136.61:8080",
+  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL,
   withCredentials: true,
+    headers: {
+      "Authorization": `Bearer ${getToken()}`
+    }
 });
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -40,13 +44,13 @@ export const useAuth = (): AuthContextValue => {
 };
 
 export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
-  const { data: user } = useGetAuthUser();
-  const { mutateAsync } = useLogout();
   const { data: authStatus } = useGetAuthStatus();
+  const { data: user } = useGetAuthUser(authStatus?.authenticated);
+  const { mutateAsync } = useLogout();
   console.log({ authStatus });
 
   const value = {
-    user: user?.data,
+    user: user,
     isAuthenticated: authStatus?.authenticated,
     logout: mutateAsync,
   };

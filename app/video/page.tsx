@@ -75,47 +75,77 @@ const VideoPage = () => {
   // Intersection Observer: determine active video + prime neighbors for fetch
   const lastActiveIndexRef = useRef<number>(0);
   const restoredRef = useRef(false);
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const audioLevelRef = useRef(audioLevel);
+
+  // Keep audioLevelRef in sync
+  useEffect(() => {
+    audioLevelRef.current = audioLevel;
+  }, [audioLevel]);
+
   useEffect(() => {
     if (videoIds.length === 0) return;
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        const id = (entry.target as HTMLElement).dataset.videoid;
-        if (!id) return;
-        const vidEl = videoRefs.current[id];
-        if (entry.isIntersecting) {
-          const idx = videoIds.indexOf(id);
-          if (idx !== -1 && activeIndex !== idx) setActiveIndex(idx);
-          setFetchableIds(prev => {
-            const next = new Set(prev);
-            next.add(id);
-            const prevId = videoIds[idx - 1];
-            const nextId = videoIds[idx + 1];
-            if (prevId) next.add(prevId);
-            if (nextId) next.add(nextId);
-            return next;
-          });
-        } else {
-          if (vidEl) {
-            try { vidEl.pause(); } catch {}
-            try { vidEl.currentTime = 0; } catch {}
+
+    // Cleanup previous observer if exists
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+      observerRef.current = null;
+    }
+
+    // Small delay to ensure DOM elements are mounted
+    const timeoutId = setTimeout(() => {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          const id = (entry.target as HTMLElement).dataset.videoid;
+          if (!id) return;
+          const vidEl = videoRefs.current[id];
+          if (entry.isIntersecting) {
+            const idx = videoIds.indexOf(id);
+            if (idx !== -1) {
+              setActiveIndex(idx);
+              setFetchableIds(prev => {
+                const next = new Set(prev);
+                next.add(id);
+                const prevId = videoIds[idx - 1];
+                const nextId = videoIds[idx + 1];
+                if (prevId) next.add(prevId);
+                if (nextId) next.add(nextId);
+                return next;
+              });
+            }
+          } else {
+            if (vidEl) {
+              try { vidEl.pause(); } catch {}
+              try { vidEl.currentTime = 0; } catch {}
+            }
           }
-        }
+        });
+      }, { threshold: 0.5 });
+
+      observerRef.current = observer;
+
+      videoIds.forEach(id => {
+        const el = containerRefs.current[id];
+        if (el) observer.observe(el);
       });
-    }, { threshold: 0.65 });
+    }, 100);
 
-    videoIds.forEach(id => {
-      const el = containerRefs.current[id];
-      if (el) observer.observe(el);
-    });
-
-    return () => observer.disconnect();
-  }, [videoIds, activeIndex]);
+    return () => {
+      clearTimeout(timeoutId);
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+        observerRef.current = null;
+      }
+    };
+  }, [videoIds]);
 
   // Restore last active video on first load (if saved)
   useEffect(() => {
     if (restoredRef.current) return;
     if (videoIds.length === 0) return;
     if (typeof window === 'undefined') return;
+
+    let restored = false;
     try {
       const storedId = window.sessionStorage.getItem(STORAGE_KEYS.lastVideoId) || window.localStorage.getItem(STORAGE_KEYS.lastVideoId);
       if (storedId) {
@@ -138,9 +168,21 @@ const VideoPage = () => {
               try { el.scrollIntoView({ block: 'start', behavior: 'auto' }); } catch {}
             }
           }, 0);
+          restored = true;
         }
       }
     } catch {}
+
+    // Falls kein Video wiederhergestellt wurde, lade die ersten 2 Videos
+    if (!restored && videoIds.length > 0) {
+      setFetchableIds(prev => {
+        const next = new Set(prev);
+        if (videoIds[0]) next.add(videoIds[0]);
+        if (videoIds[1]) next.add(videoIds[1]);
+        return next;
+      });
+    }
+
     restoredRef.current = true;
   }, [videoIds]);
 
@@ -180,13 +222,16 @@ const VideoPage = () => {
     }
     const activeId = videoIds[activeIndex];
     if (!activeId) return;
-    const vid = videoRefs.current[activeId];
+
+    // Reset attempt tracking BEFORE checking if video exists
     pendingUnmuteRef.current = false;
     attemptedPlayRef.current.delete(activeId);
+
+    const vid = videoRefs.current[activeId];
     if (vid) {
       try { vid.pause(); } catch {}
       try { vid.currentTime = 0; } catch {}
-      vid.muted = audioLevel === 0; // gewünschte Lautstärke
+      vid.muted = audioLevel === 0;
       vid.volume = audioLevel;
       const attemptPlayWithAudio = () => vid.play();
       setTimeout(() => {
@@ -213,23 +258,25 @@ const VideoPage = () => {
       }, 30);
     }
     lastActiveIndexRef.current = activeIndex;
-  }, [activeIndex, videoIds]);
+  }, [activeIndex, videoIds, audioLevel]);
 
   // Autoplay fallback when video element/data appears late
   useEffect(() => {
     const activeId = videoIds[activeIndex];
     if (!activeId) return;
-    if (!videoMap[activeId]?.url) return; // Daten noch nicht da
+    if (!videoMap[activeId]?.url) return;
     const vid = videoRefs.current[activeId];
-    if (!vid) return; // Element noch nicht im DOM
-    if (attemptedPlayRef.current.has(activeId)) return; // schon versucht
+    if (!vid) return;
+    if (attemptedPlayRef.current.has(activeId)) return;
+
     vid.muted = audioLevel === 0;
     vid.volume = audioLevel;
     vid.play().then(() => {
       attemptedPlayRef.current.add(activeId);
     }).catch(() => {
       if (audioLevel > 0) {
-        vid.muted = true; vid.volume = 0;
+        vid.muted = true;
+        vid.volume = 0;
         vid.play().then(() => {
           attemptedPlayRef.current.add(activeId);
           pendingUnmuteRef.current = true;
@@ -270,6 +317,69 @@ const VideoPage = () => {
       try { v.pause(); } catch {}
     }
   };
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if typing in input/textarea
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        e.preventDefault();
+
+        if (e.key === 'ArrowUp' && activeIndex > 0) {
+          const newIndex = activeIndex - 1;
+          const prevId = videoIds[newIndex];
+          if (prevId) {
+            // Ensure the video is fetchable
+            setFetchableIds(prev => {
+              const next = new Set(prev);
+              next.add(prevId);
+              const beforePrevId = videoIds[newIndex - 1];
+              const afterPrevId = videoIds[newIndex + 1];
+              if (beforePrevId) next.add(beforePrevId);
+              if (afterPrevId) next.add(afterPrevId);
+              return next;
+            });
+
+            // Scroll to the previous video
+            const el = containerRefs.current[prevId];
+            if (el) {
+              el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          }
+        } else if (e.key === 'ArrowDown' && activeIndex < videoIds.length - 1) {
+          const newIndex = activeIndex + 1;
+          const nextId = videoIds[newIndex];
+          if (nextId) {
+            // Ensure the video is fetchable
+            setFetchableIds(prev => {
+              const next = new Set(prev);
+              next.add(nextId);
+              const beforeNextId = videoIds[newIndex - 1];
+              const afterNextId = videoIds[newIndex + 1];
+              if (beforeNextId) next.add(beforeNextId);
+              if (afterNextId) next.add(afterNextId);
+              return next;
+            });
+
+            // Scroll to the next video
+            const el = containerRefs.current[nextId];
+            if (el) {
+              el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          }
+        }
+      } else if (e.key === ' ' || e.key === 'k') {
+        e.preventDefault();
+        const activeId = videoIds[activeIndex];
+        if (activeId) handleVideoClick(activeId);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeIndex, videoIds]);
 
   // Loading / empty states
   if (idsLoading && videoIds.length === 0) {

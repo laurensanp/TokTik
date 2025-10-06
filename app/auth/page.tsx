@@ -10,7 +10,7 @@ const AuthPage = () => {
   };
 
   const handleLogin = () => {
-      window.location.href = "http://217.234.136.61:8080/oauth2/authorization/discord";
+      window.location.href = `${process.env.NEXT_PUBLIC_API_BASE_URL}/oauth2/authorization/discord`;
   }
 
   console.log({user})

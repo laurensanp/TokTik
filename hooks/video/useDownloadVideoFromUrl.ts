@@ -1,4 +1,5 @@
 import { useState } from "react";
+import {getToken} from "@/lib/authToken";
 
 const APIFY_TOKEN = process.env.NEXT_PUBLIC_APIFY_TOKEN;
 const APIFY_ACTOR = "bytepulselabs~tiktok-video-downloader";
@@ -62,9 +63,11 @@ export function useDownloadVideoFromUrl() {
         proxy: { useApifyProxy: false }
       };
 
+      const token = getToken();
+
       const resp = await fetch(APIFY_DATASET_ENDPOINT(APIFY_ACTOR, APIFY_TOKEN), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', "Authorization": `Bearer ${token}`, },
         body: JSON.stringify(body)
       });
 

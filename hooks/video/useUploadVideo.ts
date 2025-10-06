@@ -1,4 +1,5 @@
 import { useState } from "react";
+import {getToken} from "@/lib/authToken";
 
 export function useUploadVideo() {
   const [loading, setLoading] = useState(false);
@@ -28,12 +29,12 @@ export function useUploadVideo() {
             description: "Nigga Video",
         }));
 
+        const token = getToken();
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/video`, {
-            method: "POST",
+            method: 'POST',
             body: formData,
-            credentials: "include"
+            headers: token ? { Authorization: `Bearer ${token}` } : {}
         });
-
 
       if (res.ok) {
         const text = await res.text();
