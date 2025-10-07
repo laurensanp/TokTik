@@ -29,7 +29,7 @@ export default function RootLayout({
   const TOKTIK_LOGO =
     "https://cdn.discordapp.com/attachments/978003347783159880/1420839977889169508/7xfcF3t.png?ex=68d6dbd8&is=68d58a58&hm=36b73cb9169cf0eb89c52c93b5597fd82e9e7764212a937b098b7c1f7990656d&";
 
-  const disableHeaderPaths = ["/video"];
+  const disableHeaderPaths = ["/video", "/video/[id]"];
 
   return (
     <Providers>

@@ -8,390 +8,357 @@ import VideoFeedItem from "@/components/Videos/VideoFeedItem";
 import { FeedVideo } from "@/types/video";
 
 const DEFAULT_AUDIO_LEVEL = 0.1;
-const DEFAULT_AUTHOR_ID = "68dd538d5e07979a30262a31";
 
 const STORAGE_KEYS = {
   lastVideoId: "toktik:lastVideoId",
-  volume: "toktik:volume"
+  volume: "toktik:volume",
 };
 
+// Main feed page: vertical, full-screen videos (snap scroll). Simplified logic
+// below keeps behavior but is easier to follow.
 const VideoPage = () => {
-  // Load all video ids
   const { data: idsResponse, isLoading: idsLoading } = useGetVideoIds();
-  const videoIds: string[] = Array.isArray(idsResponse?.data) ? idsResponse!.data : [];
+  const videoIds: string[] = Array.isArray(idsResponse?.data)
+    ? idsResponse!.data
+    : [];
 
-  // Track which ids should be fetched (lazy loading)
+  // Which ids we'll allow to be fetched by useLazyVideos
   const [fetchableIds, setFetchableIds] = useState<Set<string>>(new Set());
 
-  // Refs for DOM elements
+  // DOM refs
   const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
   const containerRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const lastActiveIndexRef = useRef<number>(0);
 
-  // UI State
+  // UI state
   const [activeIndex, setActiveIndex] = useState(0);
   const [openCommentsFor, setOpenCommentsFor] = useState<string | null>(null);
   const [audioLevel, setAudioLevel] = useState(DEFAULT_AUDIO_LEVEL);
   const [commentText, setCommentText] = useState("");
-  const [videoCommentCounts, setVideoCommentCounts] = useState<Record<string, number>>({});
+  const [videoCommentCounts, setVideoCommentCounts] = useState<
+    Record<string, number>
+  >({});
 
   const createCommentMutation = useCreateComment();
 
-  // Videos (lazy) Map id->FeedVideo
-  const videoMap: Record<string, FeedVideo> = useLazyVideos(videoIds, fetchableIds);
-
-  // Comments Daten für aktuell geöffnetes Video
-  const currentVideoId = openCommentsFor;
-  const { data: commentsData, refetch: refetchComments } = useGetCommentsByVideoId(
-    currentVideoId || '',
-    !!currentVideoId
+  // Lazy-loaded video data map
+  const videoMap: Record<string, FeedVideo> = useLazyVideos(
+    videoIds,
+    fetchableIds
   );
+
+  // Comments for modal
+  const currentVideoId = openCommentsFor;
+  const { data: commentsData, refetch: refetchComments } =
+    useGetCommentsByVideoId(currentVideoId || "", Boolean(currentVideoId));
   const modalComments = commentsData || [];
 
-  // Update comment count when modal data changes
+  // Update stored per-video comment counts when the modal's comments load/change
   useEffect(() => {
-    if (currentVideoId && commentsData) {
-      setVideoCommentCounts(prev => ({ ...prev, [currentVideoId]: commentsData.length }));
-    }
+    if (!currentVideoId) return;
+    if (!commentsData) return;
+    setVideoCommentCounts((prev) => ({
+      ...prev,
+      [currentVideoId]: commentsData.length,
+    }));
   }, [currentVideoId, commentsData]);
 
-  // Restore volume from localStorage (once)
+  // Update comment counts when video data loads so the interaction bar shows
+  // the number without needing to open the comments modal.
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    // videoMap entries contain videoData?.comments array (possibly)
+    const next: Record<string, number> = {};
+    Object.entries(videoMap).forEach(([id, v]) => {
+      if (!v) return;
+      const len = v.comments?.length ?? 0;
+      if (len > 0) next[id] = len;
+    });
+    if (Object.keys(next).length > 0) {
+      setVideoCommentCounts((prev) => ({ ...prev, ...next }));
+    }
+  }, [videoMap]);
+
+  // persist / restore audio level
+  useEffect(() => {
+    if (typeof window === "undefined") return;
     try {
-      const storedVol = window.localStorage.getItem(STORAGE_KEYS.volume);
-      if (storedVol !== null) {
-        const v = parseFloat(storedVol);
-        if (!Number.isNaN(v) && v >= 0 && v <= 1) setAudioLevel(v);
-      }
+      const v = window.localStorage.getItem(STORAGE_KEYS.volume);
+      if (v !== null) setAudioLevel(Number.parseFloat(v));
     } catch {}
   }, []);
-
-  // Persist volume changes
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try { window.localStorage.setItem(STORAGE_KEYS.volume, audioLevel.toString()); } catch {}
-  }, [audioLevel]);
-
-  // Intersection Observer: determine active video + prime neighbors for fetch
-  const lastActiveIndexRef = useRef<number>(0);
-  const restoredRef = useRef(false);
-  const observerRef = useRef<IntersectionObserver | null>(null);
-  const audioLevelRef = useRef(audioLevel);
-
-  // Keep audioLevelRef in sync
-  useEffect(() => {
-    audioLevelRef.current = audioLevel;
-  }, [audioLevel]);
-
-  useEffect(() => {
-    if (videoIds.length === 0) return;
-
-    // Cleanup previous observer if exists
-    if (observerRef.current) {
-      observerRef.current.disconnect();
-      observerRef.current = null;
-    }
-
-    // Small delay to ensure DOM elements are mounted
-    const timeoutId = setTimeout(() => {
-      const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-          const id = (entry.target as HTMLElement).dataset.videoid;
-          if (!id) return;
-          const vidEl = videoRefs.current[id];
-          if (entry.isIntersecting) {
-            const idx = videoIds.indexOf(id);
-            if (idx !== -1) {
-              setActiveIndex(idx);
-              setFetchableIds(prev => {
-                const next = new Set(prev);
-                next.add(id);
-                const prevId = videoIds[idx - 1];
-                const nextId = videoIds[idx + 1];
-                if (prevId) next.add(prevId);
-                if (nextId) next.add(nextId);
-                return next;
-              });
-            }
-          } else {
-            if (vidEl) {
-              try { vidEl.pause(); } catch {}
-              try { vidEl.currentTime = 0; } catch {}
-            }
-          }
-        });
-      }, { threshold: 0.5 });
-
-      observerRef.current = observer;
-
-      videoIds.forEach(id => {
-        const el = containerRefs.current[id];
-        if (el) observer.observe(el);
-      });
-    }, 100);
-
-    return () => {
-      clearTimeout(timeoutId);
-      if (observerRef.current) {
-        observerRef.current.disconnect();
-        observerRef.current = null;
-      }
-    };
-  }, [videoIds]);
-
-  // Restore last active video on first load (if saved)
-  useEffect(() => {
-    if (restoredRef.current) return;
-    if (videoIds.length === 0) return;
-    if (typeof window === 'undefined') return;
-
-    let restored = false;
+    if (typeof window === "undefined") return;
     try {
-      const storedId = window.sessionStorage.getItem(STORAGE_KEYS.lastVideoId) || window.localStorage.getItem(STORAGE_KEYS.lastVideoId);
-      if (storedId) {
-        const idx = videoIds.indexOf(storedId);
-        if (idx !== -1) {
-          setActiveIndex(idx);
-          setFetchableIds(prev => {
-            const next = new Set(prev);
-            next.add(storedId);
-            const prevId = videoIds[idx - 1];
-            const nextId = videoIds[idx + 1];
-            if (prevId) next.add(prevId);
-            if (nextId) next.add(nextId);
-            return next;
-          });
-          // Scroll zum gespeicherten Video nach Mount der Container
-          setTimeout(() => {
-            const el = containerRefs.current[storedId];
-            if (el) {
-              try { el.scrollIntoView({ block: 'start', behavior: 'auto' }); } catch {}
-            }
-          }, 0);
-          restored = true;
-        }
-      }
+      window.localStorage.setItem(STORAGE_KEYS.volume, String(audioLevel));
     } catch {}
-
-    // Falls kein Video wiederhergestellt wurde, lade die ersten 2 Videos
-    if (!restored && videoIds.length > 0) {
-      setFetchableIds(prev => {
-        const next = new Set(prev);
-        if (videoIds[0]) next.add(videoIds[0]);
-        if (videoIds[1]) next.add(videoIds[1]);
-        return next;
-      });
-    }
-
-    restoredRef.current = true;
-  }, [videoIds]);
-
-  // Persist active video id
-  useEffect(() => {
-    const id = videoIds[activeIndex];
-    if (!id) return;
-    if (typeof window === 'undefined') return;
-    try {
-      window.sessionStorage.setItem(STORAGE_KEYS.lastVideoId, id);
-      window.localStorage.setItem(STORAGE_KEYS.lastVideoId, id);
-    } catch {}
-  }, [activeIndex, videoIds]);
-
-  const pendingUnmuteRef = useRef(false);
-  const attemptedPlayRef = useRef<Set<string>>(new Set());
-
-  // Apply volume live without restart
-  useEffect(() => {
-    Object.values(videoRefs.current).forEach(v => {
+    // apply immediately
+    Object.values(videoRefs.current).forEach((v) => {
       if (!v) return;
       v.muted = audioLevel === 0;
       v.volume = audioLevel;
     });
   }, [audioLevel]);
 
-  // Handle active video change: autoplay, pause previous
-  useEffect(() => {
-    const prevIdx = lastActiveIndexRef.current;
-    const prevId = videoIds[prevIdx];
-    if (prevId && prevId !== videoIds[activeIndex]) {
-      const prevVid = videoRefs.current[prevId];
-      if (prevVid) {
-        try { prevVid.pause(); } catch {}
-        try { prevVid.currentTime = 0; } catch {}
+  // helper: pause-only (do NOT reset currentTime). Resetting currentTime
+  // causes videos to start from the beginning — avoid that for user
+  // interactions like changing volume or opening comments.
+  const pauseOnly = (el?: HTMLVideoElement | null) => {
+    if (!el) return;
+    try {
+      el.pause();
+    } catch {}
+  };
+
+  // try play; if blocked, mute and play then restore on interaction
+  const playWithFallback = async (
+    el?: HTMLVideoElement | null,
+    level?: number
+  ) => {
+    if (!el) return;
+    try {
+      el.muted = (level ?? audioLevel) === 0;
+      el.volume = level ?? audioLevel;
+      await el.play();
+      return;
+    } catch {
+      // try muted
+      if ((level ?? audioLevel) > 0) {
+        try {
+          el.muted = true;
+          el.volume = 0;
+        } catch {}
+        try {
+          await el.play();
+          const restore = () => {
+            try {
+              el.muted = (level ?? audioLevel) === 0;
+              el.volume = level ?? audioLevel;
+            } catch {}
+          };
+          window.addEventListener("pointerdown", restore, { once: true });
+          window.addEventListener("keydown", restore, { once: true });
+        } catch {}
       }
     }
-    const activeId = videoIds[activeIndex];
-    if (!activeId) return;
+  };
 
-    // Reset attempt tracking BEFORE checking if video exists
-    pendingUnmuteRef.current = false;
-    attemptedPlayRef.current.delete(activeId);
+  // when activeIndex changes, ensure a window around it is fetchable
+  useEffect(() => {
+    if (videoIds.length === 0) return;
+    setFetchableIds((prev) => {
+      const next = new Set(prev);
+      const idx = activeIndex;
+      // expand prefetch window to fetch further-ahead videos and their
+      // metadata (comments) so the count is available before the user
+      // reaches the video.
+      for (let i = idx - 3; i <= idx + 5; i++) {
+        if (videoIds[i]) next.add(videoIds[i]);
+      }
+      return next;
+    });
+  }, [activeIndex, videoIds]);
 
-    const vid = videoRefs.current[activeId];
-    if (vid) {
-      try { vid.pause(); } catch {}
-      try { vid.currentTime = 0; } catch {}
-      vid.muted = audioLevel === 0;
-      vid.volume = audioLevel;
-      const attemptPlayWithAudio = () => vid.play();
-      setTimeout(() => {
-        attemptPlayWithAudio().then(() => {
-          attemptedPlayRef.current.add(activeId);
-        }).catch(() => {
-          if (audioLevel > 0) {
-            vid.muted = true;
-            vid.volume = 0;
-            vid.play().then(() => {
-              attemptedPlayRef.current.add(activeId);
-              pendingUnmuteRef.current = true;
-              const restore = () => {
-                if (!pendingUnmuteRef.current) return;
-                pendingUnmuteRef.current = false;
-                vid.muted = audioLevel === 0;
-                vid.volume = audioLevel;
-              };
-              window.addEventListener('pointerdown', restore, { once: true });
-              window.addEventListener('keydown', restore, { once: true });
-            }).catch(() => {});
+  // register video element
+  const registerVideo = (id: string, el: HTMLVideoElement | null) => {
+    videoRefs.current[id] = el;
+    // apply audio level immediately
+    if (el) {
+      try {
+        el.muted = audioLevel === 0;
+        el.volume = audioLevel;
+      } catch {}
+    }
+    // if element is active and data ready => try to play
+    const idx = videoIds.indexOf(id);
+    if (idx === activeIndex && videoMap[id]?.url) {
+      playWithFallback(el).catch(() => {});
+    }
+  };
+
+  // when activeIndex changes, pause previous and play current
+  useEffect(() => {
+    // Determine previous active index from ref, not by estimating. This
+    // avoids pausing the wrong item when the user scrolls quickly.
+    const prevIdx = lastActiveIndexRef.current;
+    if (
+      typeof prevIdx === "number" &&
+      prevIdx !== activeIndex &&
+      !openCommentsFor
+    ) {
+      const prevId = videoIds[prevIdx];
+      const prevEl = videoRefs.current[prevId];
+      pauseOnly(prevEl);
+    }
+
+    const id = videoIds[activeIndex];
+    const el = videoRefs.current[id];
+    // If the comments modal is open, avoid toggling playback to prevent any
+    // audible cut while the user interacts with comments. Playback should be
+    // left as-is until the modal closes.
+    if (!openCommentsFor) {
+      if (el && videoMap[id]?.url) {
+        // short delay to allow DOM updates
+        setTimeout(() => playWithFallback(el).catch(() => {}), 30);
+      }
+    }
+
+    // persist active id
+    if (typeof window !== "undefined" && id) {
+      try {
+        window.sessionStorage.setItem(STORAGE_KEYS.lastVideoId, id);
+        window.localStorage.setItem(STORAGE_KEYS.lastVideoId, id);
+      } catch {}
+    }
+
+    // remember for next time
+    lastActiveIndexRef.current = activeIndex;
+  }, [activeIndex, videoIds, videoMap]);
+
+  // IntersectionObserver to detect active element (keeps markup intact)
+  useEffect(() => {
+    if (videoIds.length === 0) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const id = (entry.target as HTMLElement).dataset.videoid;
+          if (!id) return;
+          if (entry.isIntersecting) {
+            const idx = videoIds.indexOf(id);
+            if (idx !== -1) setActiveIndex(idx);
+          } else {
+            // If comments modal is open, don't pause/reset videos — the
+            // modal overlay can change intersection geometry and we don't
+            // want to restart playback when the user opens/closes comments.
+            if (openCommentsFor) return;
+            const el = videoRefs.current[id];
+            if (el) {
+              try {
+                el.pause();
+              } catch {}
+              try {
+                el.currentTime = 0;
+              } catch {}
+            }
           }
         });
-      }, 30);
-    }
-    lastActiveIndexRef.current = activeIndex;
-  }, [activeIndex, videoIds, audioLevel]);
-
-  // Autoplay fallback when video element/data appears late
-  useEffect(() => {
-    const activeId = videoIds[activeIndex];
-    if (!activeId) return;
-    if (!videoMap[activeId]?.url) return;
-    const vid = videoRefs.current[activeId];
-    if (!vid) return;
-    if (attemptedPlayRef.current.has(activeId)) return;
-
-    vid.muted = audioLevel === 0;
-    vid.volume = audioLevel;
-    vid.play().then(() => {
-      attemptedPlayRef.current.add(activeId);
-    }).catch(() => {
-      if (audioLevel > 0) {
-        vid.muted = true;
-        vid.volume = 0;
-        vid.play().then(() => {
-          attemptedPlayRef.current.add(activeId);
-          pendingUnmuteRef.current = true;
-          const restore = () => {
-            if (!pendingUnmuteRef.current) return;
-            pendingUnmuteRef.current = false;
-            vid.muted = audioLevel === 0;
-            vid.volume = audioLevel;
-          };
-          window.addEventListener('pointerdown', restore, { once: true });
-          window.addEventListener('keydown', restore, { once: true });
-        }).catch(() => {});
-      }
+      },
+      { threshold: 0.6 }
+    );
+    // observe
+    videoIds.forEach((id) => {
+      const el = containerRefs.current[id];
+      if (el) obs.observe(el);
     });
-  }, [videoMap, activeIndex, videoIds, audioLevel]);
+    return () => obs.disconnect();
+  }, [videoIds]);
+
+  // restore last active if present
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored =
+        window.sessionStorage.getItem(STORAGE_KEYS.lastVideoId) ||
+        window.localStorage.getItem(STORAGE_KEYS.lastVideoId);
+      if (stored) {
+        const idx = videoIds.indexOf(stored);
+        if (idx !== -1) setActiveIndex(idx);
+      }
+    } catch {}
+  }, [videoIds]);
+
+  // Initial priming: when the list of ids first becomes available, mark the
+  // first few ids as fetchable so comment counts and metadata arrive early.
+  useEffect(() => {
+    if (videoIds.length === 0) return;
+    setFetchableIds((prev) => {
+      const next = new Set(prev);
+      // prime first 8 videos so comment counts/metadata are available early
+      for (let i = 0; i < Math.min(8, videoIds.length); i++) {
+        next.add(videoIds[i]);
+      }
+      return next;
+    });
+  }, [videoIds]);
+
+  // keyboard nav (simple)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      )
+        return;
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setActiveIndex((i) => Math.min(videoIds.length - 1, i + 1));
+        setTimeout(() => {
+          const id = videoIds[Math.min(videoIds.length - 1, activeIndex + 1)];
+          const el = containerRefs.current[id];
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 10);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setActiveIndex((i) => Math.max(0, i - 1));
+        setTimeout(() => {
+          const id = videoIds[Math.max(0, activeIndex - 1)];
+          const el = containerRefs.current[id];
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 10);
+      } else if (e.key === " " || e.key === "k") {
+        e.preventDefault();
+        const id = videoIds[activeIndex];
+        const v = videoRefs.current[id];
+        if (v) {
+          if (v.paused) v.play().catch(() => {});
+          else v.pause();
+        }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [activeIndex, videoIds]);
 
   const openComments = (id: string) => setOpenCommentsFor(id);
   const closeComments = () => setOpenCommentsFor(null);
 
-  const handleCommentSubmit = (e: React.FormEvent<HTMLFormElement>, videoId: string) => {
+  const handleCommentSubmit = (
+    e: React.FormEvent<HTMLFormElement>,
+    videoId: string
+  ) => {
     e.preventDefault();
     if (!commentText.trim()) return;
-    createCommentMutation.mutate({ videoId, authorId: DEFAULT_AUTHOR_ID, content: commentText.trim() }, {
-      onSuccess: () => {
-        refetchComments().catch(() => {});
-        setCommentText("");
+    createCommentMutation.mutate(
+      { videoId, content: commentText.trim() },
+      {
+        onSuccess: () => {
+          refetchComments().catch(() => {});
+          setCommentText("");
+        },
       }
-    });
+    );
   };
 
-  // Click toggles play / pause
-  const handleVideoClick = (id: string) => {
-    const v = videoRefs.current[id];
-    if (!v) return;
-    if (v.paused) {
-      v.play().catch(() => {});
-    } else {
-      try { v.pause(); } catch {}
-    }
-  };
-
-  // Keyboard navigation
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if typing in input/textarea
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-
-      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-        e.preventDefault();
-
-        if (e.key === 'ArrowUp' && activeIndex > 0) {
-          const newIndex = activeIndex - 1;
-          const prevId = videoIds[newIndex];
-          if (prevId) {
-            // Ensure the video is fetchable
-            setFetchableIds(prev => {
-              const next = new Set(prev);
-              next.add(prevId);
-              const beforePrevId = videoIds[newIndex - 1];
-              const afterPrevId = videoIds[newIndex + 1];
-              if (beforePrevId) next.add(beforePrevId);
-              if (afterPrevId) next.add(afterPrevId);
-              return next;
-            });
-
-            // Scroll to the previous video
-            const el = containerRefs.current[prevId];
-            if (el) {
-              el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-          }
-        } else if (e.key === 'ArrowDown' && activeIndex < videoIds.length - 1) {
-          const newIndex = activeIndex + 1;
-          const nextId = videoIds[newIndex];
-          if (nextId) {
-            // Ensure the video is fetchable
-            setFetchableIds(prev => {
-              const next = new Set(prev);
-              next.add(nextId);
-              const beforeNextId = videoIds[newIndex - 1];
-              const afterNextId = videoIds[newIndex + 1];
-              if (beforeNextId) next.add(beforeNextId);
-              if (afterNextId) next.add(afterNextId);
-              return next;
-            });
-
-            // Scroll to the next video
-            const el = containerRefs.current[nextId];
-            if (el) {
-              el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-          }
-        }
-      } else if (e.key === ' ' || e.key === 'k') {
-        e.preventDefault();
-        const activeId = videoIds[activeIndex];
-        if (activeId) handleVideoClick(activeId);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeIndex, videoIds]);
-
-  // Loading / empty states
-  if (idsLoading && videoIds.length === 0) {
-    return <div className="flex h-screen w-full items-center justify-center text-sm text-white/60 bg-black">Loading videos...</div>;
-  }
-  if (videoIds.length === 0 && !idsLoading) {
-    return <div className="flex h-screen w-full items-center justify-center text-sm text-white/60 bg-black">No videos found.</div>;
-  }
+  // Loading / empty states (markup preserved)
+  if (idsLoading && videoIds.length === 0)
+    return (
+      <div className="flex h-screen w-full items-center justify-center text-sm text-white/60 bg-black">
+        Loading videos...
+      </div>
+    );
+  if (videoIds.length === 0 && !idsLoading)
+    return (
+      <div className="flex h-screen w-full items-center justify-center text-sm text-white/60 bg-black">
+        No videos found.
+      </div>
+    );
 
   return (
     <div className="h-screen w-full bg-black text-white">
-      <div className={`h-screen w-full ${openCommentsFor ? "overflow-hidden" : "overflow-y-scroll"} snap-y snap-mandatory bg-black text-white`}>
+      <div
+        className={`h-screen w-full ${
+          openCommentsFor ? "overflow-hidden" : "overflow-y-scroll"
+        } snap-y snap-mandatory bg-black text-white`}
+      >
         {videoIds.map((id, index) => (
           <VideoFeedItem
             key={id}
@@ -402,9 +369,18 @@ const VideoPage = () => {
             isActive={videoIds[activeIndex] === id}
             audioLevel={audioLevel}
             setAudioLevel={setAudioLevel}
-            registerContainer={(vid, el) => { containerRefs.current[vid] = el; }}
-            registerVideo={(vid, el) => { videoRefs.current[vid] = el; }}
-            onVideoClick={handleVideoClick}
+            registerContainer={(vid, el) => {
+              containerRefs.current[vid] = el;
+            }}
+            registerVideo={(vid, el) => {
+              registerVideo(vid, el);
+            }}
+            onVideoClick={(vid) => {
+              const v = videoRefs.current[vid];
+              if (!v) return;
+              if (v.paused) v.play().catch(() => {});
+              else v.pause();
+            }}
             openCommentsFor={openCommentsFor}
             onOpenComments={openComments}
             onCloseComments={closeComments}

@@ -20,6 +20,13 @@ const Header: FC<HeaderProps> = ({ logo, disabledPaths = [] }) => {
   const { user, isAuthenticated } = useAuth();
   console.log({ nigger: user });
   const path = usePathname();
+
+  const shouldHideHeader = disabledPaths.some(
+      (p) => path === p || path.startsWith(p + "/")
+  );
+
+  if (shouldHideHeader) return null; // Header nicht rendern
+
   const links: HeaderItem[] = [
     {
       name: "Uploade TokTik™️ now",
@@ -35,7 +42,6 @@ const Header: FC<HeaderProps> = ({ logo, disabledPaths = [] }) => {
     },
   ];
   return (
-    !disabledPaths.includes(path) && (
       <nav className="flex bg-black px-8 py-4 items-center justify-between shadow-lg">
         {/* Logo added back */}
         <div className="flex items-center">
@@ -70,7 +76,6 @@ const Header: FC<HeaderProps> = ({ logo, disabledPaths = [] }) => {
           )}
         </div>
       </nav>
-    )
   );
 };
 

@@ -5,10 +5,9 @@ const useGetAuthUser = (isAuthenticated?: boolean) => {
     return useQuery({
         queryKey: ["GET_AUTH_USER"],
         queryFn: async () => {
-            const res = await ApiInstance.get("/user/me")
+            const res = await ApiInstance.get("/auth/me")
             return res?.data
         },
-        enabled: isAuthenticated === true,
         retry: false
     })
 }

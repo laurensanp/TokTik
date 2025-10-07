@@ -3,7 +3,6 @@ import {getToken} from "@/lib/authToken";
 
 interface CreateCommentRequest {
   videoId: string;
-  authorId: string;
   content: string;
 }
 
@@ -23,9 +22,9 @@ const useCreateComment = () => {
   const queryClient = useQueryClient();
 
   return useMutation<CreateCommentResponse, Error, CreateCommentRequest>({
-    mutationFn: async ({ videoId, authorId, content }) => {
+    mutationFn: async ({ videoId, content }) => {
       const url = `${process.env.NEXT_PUBLIC_API_BASE_URL}/comment/${videoId}`;
-      const body = { authorId, content };
+      const body = { content };
         const token = getToken();
         const response = await fetch(url, {
         method: 'POST',
