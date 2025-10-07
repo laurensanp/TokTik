@@ -67,7 +67,7 @@ export function useDownloadVideoFromUrl() {
 
       const resp = await fetch(APIFY_DATASET_ENDPOINT(APIFY_ACTOR, APIFY_TOKEN), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', "Authorization": `Bearer ${token}`, },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
 

@@ -28,6 +28,9 @@ const VideoPage = () => {
   // DOM refs
   const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
   const containerRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const scrollRafRef = useRef<number | null>(null);
   const lastActiveIndexRef = useRef<number>(0);
 
   // UI state
@@ -244,13 +247,61 @@ const VideoPage = () => {
       },
       { threshold: 0.6 }
     );
-    // observe
-    videoIds.forEach((id) => {
-      const el = containerRefs.current[id];
+    observerRef.current = obs;
+
+    // Observe any containers already mounted
+    Object.values(containerRefs.current).forEach((el) => {
       if (el) obs.observe(el);
     });
-    return () => obs.disconnect();
-  }, [videoIds]);
+
+    return () => {
+      obs.disconnect();
+      observerRef.current = null;
+    };
+  }, [videoIds, openCommentsFor]);
+
+  // Update activeIndex while scrolling (for natural scroll, not only arrow keys)
+  useEffect(() => {
+    const sc = scrollContainerRef.current;
+    if (!sc) return;
+
+    const onScroll = () => {
+      if (scrollRafRef.current !== null) return;
+      scrollRafRef.current = window.requestAnimationFrame(() => {
+        scrollRafRef.current = null;
+        const rect = sc.getBoundingClientRect();
+        const centerY = rect.top + rect.height / 2;
+        // find container whose center is nearest to centerY
+        let bestIdx = -1;
+        let bestDist = Infinity;
+        for (let i = 0; i < videoIds.length; i++) {
+          const id = videoIds[i];
+          const el = containerRefs.current[id];
+          if (!el) continue;
+          const er = el.getBoundingClientRect();
+          const eCenter = er.top + er.height / 2;
+          const dist = Math.abs(eCenter - centerY);
+          if (dist < bestDist) {
+            bestDist = dist;
+            bestIdx = i;
+          }
+        }
+        if (bestIdx !== -1 && bestIdx !== activeIndex) {
+          setActiveIndex(bestIdx);
+          // scrollIntoView is not needed here since user scrolled, but keep small delay logic if needed
+        }
+      });
+    };
+
+    sc.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      sc.removeEventListener("scroll", onScroll);
+      if (scrollRafRef.current !== null) {
+        window.cancelAnimationFrame(scrollRafRef.current);
+        scrollRafRef.current = null;
+      }
+    };
+  }, [videoIds, activeIndex]);
 
   // restore last active if present
   useEffect(() => {
@@ -355,6 +406,7 @@ const VideoPage = () => {
   return (
     <div className="h-screen w-full bg-black text-white">
       <div
+        ref={scrollContainerRef}
         className={`h-screen w-full ${
           openCommentsFor ? "overflow-hidden" : "overflow-y-scroll"
         } snap-y snap-mandatory bg-black text-white`}
@@ -370,7 +422,23 @@ const VideoPage = () => {
             audioLevel={audioLevel}
             setAudioLevel={setAudioLevel}
             registerContainer={(vid, el) => {
-              containerRefs.current[vid] = el;
+              // Unobserve previous element for this id (if any)
+              const prev = containerRefs.current[vid];
+              if (prev && observerRef.current) {
+                try {
+                  observerRef.current.unobserve(prev);
+                } catch {}
+              }
+              if (el) {
+                containerRefs.current[vid] = el;
+                if (observerRef.current) {
+                  try {
+                    observerRef.current.observe(el);
+                  } catch {}
+                }
+              } else {
+                delete containerRefs.current[vid];
+              }
             }}
             registerVideo={(vid, el) => {
               registerVideo(vid, el);

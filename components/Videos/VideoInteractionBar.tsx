@@ -20,6 +20,15 @@ const VideoInteractionBar = ({
 }: VideoInteractionBarProps) => {
   return (
     <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-6">
+      {/* Add button at the very top of the interaction column (centered horizontally) */}      
+      <Link
+        href="/video/upload"
+        aria-label="Add"
+        type="button"
+        className="w-10 h-10 rounded-full bg-black border border-white/10 flex items-center justify-center shadow-lg hover:scale-105 transition-transform self-center"
+      >
+        <span className="text-white text-lg font-bold leading-none">+</span>
+      </Link>
       {/* Profile avatar linking to /user/{id} */}
       {userId ? (
         <Link
